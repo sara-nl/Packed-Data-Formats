@@ -1,0 +1,22 @@
+# Cache
+__pycache__/
+.cache/
+
+# IDE
+.vscode
+
+# Development
+build/
+
+# Environments
+venv/
+
+# HPC output
+slurm*.out
+
+
+# Custom:
+data/*
+old/
+results/
+figures/
