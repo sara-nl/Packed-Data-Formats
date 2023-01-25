@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 import io
-
+import os
 
 import numpy as np
 import h5py
@@ -98,7 +98,6 @@ def generate_hdf5_data(dataset, path, num_files=4):
     num_file = 0
 
     dataloader = torch.utils.data.DataLoader(dataset, num_workers=32, batch_size=1, collate_fn=collate_fn)
-    print("Starting data loading...")
 
     for i, (image, label) in enumerate(dataloader):
         image = image[0]
@@ -134,23 +133,22 @@ def generate_hdf5_data(dataset, path, num_files=4):
             label_dataset = file.create_dataset("labels", (div, ), dtype=np.uint8)
     return
 
-def cifar10_to_hdf5(num_files=1, save_as_bytes=False, encoder_info=False):
+def cifar10_to_hdf5(num_files=1, save_encoded=False, encoder_info=False):
     output_path = "data/cifar10/hdf5/"
-    print(output_path)
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
 
     data_path = "data/cifar10/disk/"
     dataset = ImageDataset(data_path, encoder_info=encoder_info)
 
-    if save_as_bytes:
+    if save_encoded:
         generate_hdf5_data_bytes(dataset, output_path, num_files=num_files, encoder_info=encoder_info)
 
     else:
         generate_hdf5_data(dataset, output_path, num_files=num_files)
 
-def imagenet10k_to_hdf5(num_files=1, save_as_bytes=False, resize=True, encoder_info=False):
-    output_path = "data/imagenet10k/hdf5/"
+def imagenet10k_to_hdf5(num_files=1, save_encoded=False, resize=True, encoder_info=False):
+    output_path = "..data/imagenet10k/hdf5/"
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
 
@@ -160,23 +158,23 @@ def imagenet10k_to_hdf5(num_files=1, save_as_bytes=False, resize=True, encoder_i
     else:
         transform_ = None
 
-    data_path = "data/imagenet10k/disk/"
+    data_path = "..data/imagenet10k/disk/"
     dataset = ImageDataset(data_path, prefix="ILSVRC2012_val_", transform=transform_, offset_index=1, encoder_info=encoder_info)
 
-    if save_as_bytes:
+    if save_encoded:
         generate_hdf5_data_bytes(dataset, output_path, num_files=num_files, encoder_info=encoder_info)
     else:
         generate_hdf5_data(dataset, output_path, num_files=num_files)
 
 
-def ffhq_to_hdf5(num_files=1, save_as_bytes=False, encoder_info=False):
+def ffhq_to_hdf5(num_files=1, save_encoded=False, encoder_info=False):
     output_path = "/scratch-shared/{}/ffhq/hdf5".format(os.getenv("USER"))
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
     data_path = "/scratch-shared/{}/ffhq/tar/ffhq_images.tar".format(os.getenv("USER"))
-    dataset = TARDataset(data_path, encoder_info=encoder_info, label_file="/scratch-shared/thomaso/ffhq/tar/members")
+    dataset = TARDataset(data_path, encoder_info=encoder_info, label_file="/scratch-shared/{}/ffhq/tar/members".format(os.getenv("USER")))
 
-    if save_as_bytes:
+    if save_encoded:
         generate_hdf5_data_bytes(dataset, output_path, num_files=num_files, encoder_info=encoder_info)
     else:
         generate_hdf5_data(dataset, output_path, num_files=num_files)
@@ -196,9 +194,9 @@ if __name__ == "__main__":
     # Number of partitions/shard/files to subdivide the dataset into
     num_files = 1
     # Flag to save as bytes or H5 arrays
-    save_as_bytes = True
+    save_encoded = False
     resize = False # resize must be true for HDF5 for ImageNet10k
-    encoder_info = True
-    cifar10_to_hdf5(num_files, save_as_bytes, encoder_info=encoder_info)
-    #imagenet10k_to_hdf5(num_files, save_as_bytes, encoder_info=encoder_info)
-    #ffhq_to_hdf5(num_files, save_as_bytes, encoder_info)
+    encoder_info = False
+    cifar10_to_hdf5(num_files, save_encoded, encoder_info=encoder_info)
+    #imagenet10k_to_hdf5(num_files, save_encoded, encoder_info=encoder_info)
+    #ffhq_to_hdf5(num_files, save_encoded, encoder_info)

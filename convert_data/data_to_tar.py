@@ -2,6 +2,7 @@ from pathlib import Path
 import tarfile 
 import io 
 import time
+import os
 
 import json
 import PIL.Image
@@ -10,7 +11,7 @@ import torch
 
 from utils_convert import ImageDataset, TARDataset, transform, collate_fn, collate_fn_encoder_info
 
-def generate_tar_data(dataset, path, num_files=1, png_encoded=True, encoder_info=False):
+def generate_tar_data(dataset, path, num_files=1, save_encoded=True, encoder_info=False):
     file_ext = dataset.file_ext
     out_label_file = "dataset.json"
     labels_json = []
@@ -42,7 +43,7 @@ def generate_tar_data(dataset, path, num_files=1, png_encoded=True, encoder_info
         index_str = str(i).zfill(8)
         archive_fname = "{}/img{}{}".format(index_str[:5], index_str, file_ext)
 
-        if png_encoded:
+        if save_encoded:
             image_bits = io.BytesIO()
             if encoder_info:
                 info = batch[2][0]
@@ -116,41 +117,16 @@ def generate_tar_data(dataset, path, num_files=1, png_encoded=True, encoder_info
     return
 
 
-
-'''
-def convert_to_tar(filename, images, labels):
-    sink = wds.TarWriter(filename)
-    for index, (input, output) in enumerate(zip(images, labels)):
-        if index%1000==0:
-            print(f"{index:6d}", end="\r", flush=True, file=sys.stderr)
-
-        input = input.astype(np.float32) / 255
-        assert input.ndim == 3 and input.shape[2] == 3
-        assert input.dtype == np.float32 
-        assert np.amin(input) >= 0 
-        assert np.amax(input) <= 1
-        assert type(output) == int
-        
-        sample = {
-            "__key__": "sample%05d" % index,
-            "image.png": input,
-            "label.cls": output, # or label.cls?
-        }
-        
-        sink.write(sample)
-    sink.close()
-'''
-
-def cifar10_to_tar(num_files, png_encoded):
-    output_path = "data/cifar10/tar"
+def cifar10_to_tar(num_files, save_encoded):
+    output_path = "..data/cifar10/tar"
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
-    data_path = "data/cifar10/disk/"
+    data_path = "..data/cifar10/disk/"
     dataset = ImageDataset(data_path)
-    generate_tar_data(dataset, output_path, num_files=num_files, png_encoded=png_encoded)
+    generate_tar_data(dataset, output_path, num_files=num_files, save_encoded=save_encoded)
 
-def imagenet10k_to_tar(num_files, png_encoded, resize=True, encoder_info=False):
-    output_path = "data/imagenet10k/tar"
+def imagenet10k_to_tar(num_files, save_encoded, resize=True, encoder_info=False):
+    output_path = "..data/imagenet10k/tar"
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
     if resize:
@@ -159,19 +135,19 @@ def imagenet10k_to_tar(num_files, png_encoded, resize=True, encoder_info=False):
     else:
         transform_ = None
 
-    data_path = "data/imagenet10k/disk/"
+    data_path = "..data/imagenet10k/disk/"
     dataset = ImageDataset(data_path, transform=transform_, prefix="ILSVRC2012_val_", offset_index=1, encoder_info=encoder_info)
-    generate_tar_data(dataset, output_path, num_files=num_files, png_encoded=png_encoded, encoder_info=encoder_info)
+    generate_tar_data(dataset, output_path, num_files=num_files, save_encoded=save_encoded, encoder_info=encoder_info)
 
-def ffhq_to_tar(num_files, png_encoded=False, encoder_info=False):
-    output_path = "/scratch-shared/thomaso/ffhq/tar_bytes/"
+def ffhq_to_tar(num_files, save_encoded=False, encoder_info=False):
+    output_path = "/scratch-shared/{}}/ffhq/tar_bytes/".format(os.getenv("USER"))
 
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
-    data_path = "/scratch-shared/thomaso/ffhq/tar/ffhq_images.tar"
-    dataset = TARDataset(data_path, encoder_info=encoder_info, label_file="/scratch-shared/thomaso/ffhq/tar/members")
+    data_path = "/scratch-shared/{}/ffhq/tar/ffhq_images.tar".format(os.getenv("USER"))
+    dataset = TARDataset(data_path, encoder_info=encoder_info, label_file="/scratch-shared/{}}/ffhq/tar/members".format(os.getenv("USER")))
 
-    generate_tar_data(dataset, output_path, num_files=num_files, png_encoded=png_encoded, encoder_info=encoder_info)
+    generate_tar_data(dataset, output_path, num_files=num_files, save_encoded=save_encoded, encoder_info=encoder_info)
 
 if __name__ == "__main__":
     '''
@@ -185,9 +161,9 @@ if __name__ == "__main__":
        The byte version serializes the image with lossless PNG or the original JPEG compression
     '''
     num_files = 1
-    png_encoded = False
+    save_encoded = False
     encoder_info = False
     resize = False
-    cifar10_to_tar(num_files, png_encoded)
-    #imagenet10k_to_tar(num_files, png_encoded=png_encoded, compressed=compressed, resize=resize, encoder_info=encoder_info)
-    #ffhq_to_tar(num_files, png_encoded=png_encoded, encoder_info=encoder_info)
+    cifar10_to_tar(num_files, save_encoded)
+    #imagenet10k_to_tar(num_files, save_encoded=save_encoded, compressed=compressed, resize=resize, encoder_info=encoder_info)
+    #ffhq_to_tar(num_files, save_encoded=save_encoded, encoder_info=encoder_info)

@@ -149,16 +149,16 @@ class H5Dataset(torch.utils.data.Dataset):
         Args:
             path (str): location where the images are stored on disk
             transform (obj): torchvision.transforms object or None
-            png_encoded (bool): whether the images within the .h5 file are encoded or saved as bytes directly
+            save_encoded (bool): whether the images within the .h5 file are encoded or saved as bytes directly
         Returns:
             torch Dataset: to pass to a dataloader
     """
-    def __init__(self, path, cache=False, transform=None, png_encoded=False):
+    def __init__(self, path, cache=False, transform=None, save_encoded=False):
         print("Initializing HDF5 dataset with path: ", path)
         self.file_path = path
         self.cache = cache
         self.transform = transform
-        self.png_encoded = png_encoded
+        self.save_encoded = save_encoded
 
         # Hardcoded key, value pair within the .h5 files
         self.h5_key_samples = "images"
@@ -184,7 +184,7 @@ class H5Dataset(torch.utils.data.Dataset):
         if self.cache:
             image = self.cached_images[index]
             label = self.cached_labels[index]
-            if self.png_encoded:
+            if self.save_encoded:
                 image = PIL.Image.open(io.BytesIO(image))
             if self.transform:
                 image = self.transform(image)
@@ -200,7 +200,7 @@ class H5Dataset(torch.utils.data.Dataset):
 
 
         image = self.dataset[index]
-        if self.png_encoded:
+        if self.save_encoded:
             image = PIL.Image.open(io.BytesIO(image))
 
 
@@ -222,16 +222,16 @@ class LMDBDataset(torch.utils.data.Dataset):
         Args:
             path (str): location where the images are stored on disk
             transform (obj): torchvision.transforms object or None
-            png_encoded (bool): whether the images within the .h5 file are encoded or saved as bytes directly
+            save_encoded (bool): whether the images within the .h5 file are encoded or saved as bytes directly
         Returns:
             torch Dataset: to pass to a dataloader
     """
-    def __init__(self, path, cache=False, transform=None, png_encoded=False):
+    def __init__(self, path, cache=False, transform=None, save_encoded=False):
         print("Initializing LMDB dataset with path: ", path)
         self.path = path
         self.cache = cache
         self.transform = transform
-        self.png_encoded = png_encoded
+        self.save_encoded = save_encoded
 
         self.cached_images = []
         self.cached_labels = []
@@ -260,7 +260,7 @@ class LMDBDataset(torch.utils.data.Dataset):
             image = self.cached_images[index]
             label = self.cached_labels[index]
 
-            if self.png_encoded:
+            if self.save_encoded:
                 image = PIL.Image.open(io.BytesIO(image))
             if self.transform:
                 image = self.transform(image)
@@ -275,7 +275,7 @@ class LMDBDataset(torch.utils.data.Dataset):
         # Load from LMDB
         image, label = pickle.loads(self.txn.get(self.keys[index]))
 
-        if self.png_encoded:
+        if self.save_encoded:
             image = PIL.Image.open(io.BytesIO(image))
 
         if self.transform:

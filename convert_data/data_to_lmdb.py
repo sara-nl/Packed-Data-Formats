@@ -1,5 +1,6 @@
 from pathlib import Path
 import io
+import os
 
 import numpy as np 
 
@@ -12,7 +13,7 @@ import PIL.Image
 from utils_convert import ImageDataset, TARDataset, transform, collate_fn, collate_fn_encoder_info
 
 
-def generate_lmdb_data(dataset, path, num_files=4, save_as_bytes=False, encoder_info=False):
+def generate_lmdb_data(dataset, path, num_files=4, save_encoded=False, encoder_info=False):
     num_images = len(dataset)
 
     num_files = np.linspace(0, num_images, num_files+1, dtype=int)[1:]
@@ -37,7 +38,7 @@ def generate_lmdb_data(dataset, path, num_files=4, save_as_bytes=False, encoder_
 
         with env.begin(write=True) as txn: #TODO: this takes much time?
             key = f"{i:08}"
-            if save_as_bytes:
+            if save_encoded:
                 image_bits = io.BytesIO()
                 if encoder_info:
                     info = batch[2][0]
@@ -88,17 +89,17 @@ def generate_lmdb_data(dataset, path, num_files=4, save_as_bytes=False, encoder_
     env.close()
     return
 
-def cifar10_to_lmdb(num_files, save_as_bytes, encoder_info=False):
-    output_path = "data/cifar10/lmdb2"
+def cifar10_to_lmdb(num_files, save_encoded, encoder_info=False):
+    output_path = "..data/cifar10/lmdb"
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
-    data_path = "data/cifar10/disk/"
+    data_path = "..data/cifar10/disk/"
     dataset = ImageDataset(data_path, encoder_info=encoder_info)
-    generate_lmdb_data(dataset, output_path, num_files=num_files, save_as_bytes=save_as_bytes, encoder_info=encoder_info)
+    generate_lmdb_data(dataset, output_path, num_files=num_files, save_encoded=save_encoded, encoder_info=encoder_info)
 
 
-def imagenet10k_to_lmdb(num_files, save_as_bytes=False, resize=True, encoder_info=False):
-    output_path = "data/imagenet10k/lmdb"
+def imagenet10k_to_lmdb(num_files, save_encoded=False, resize=True, encoder_info=False):
+    output_path = "..data/imagenet10k/lmdb"
     Path(output_path).mkdir(parents=True, exist_ok=True)
     
     # ImageNet has various resolutions so resize to a fixed size
@@ -108,19 +109,19 @@ def imagenet10k_to_lmdb(num_files, save_as_bytes=False, resize=True, encoder_inf
     else:
         transform_ = None
 
-    data_path = "data/imagenet10k/disk/"
+    data_path = "..data/imagenet10k/disk/"
     dataset = ImageDataset(data_path, prefix="ILSVRC2012_val_", transform=transform_, offset_index=1, encoder_info=encoder_info)
-    generate_lmdb_data(dataset, output_path, num_files=num_files, save_as_bytes=save_as_bytes, encoder_info=encoder_info)
+    generate_lmdb_data(dataset, output_path, num_files=num_files, save_encoded=save_encoded, encoder_info=encoder_info)
 
 
-def ffhq_to_lmdb(num_files, save_as_bytes=False, encoder_info=False):
-    output_path = "/scratch-shared/thomaso/ffhq/lmdb"
+def ffhq_to_lmdb(num_files, save_encoded=False, encoder_info=False):
+    output_path = "/scratch-shared/{}/ffhq/lmdb".format(os.getenv("USER"))
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
-    data_path = "/scratch-shared/thomaso/ffhq/tar/ffhq_images.tar"
-    dataset = TARDataset(data_path, encoder_info=encoder_info, label_file="/scratch-shared/thomaso/ffhq/tar/members")
+    data_path = "/scratch-shared/{}/ffhq/tar/ffhq_images.tar".format(os.getenv("USER"))
+    dataset = TARDataset(data_path, encoder_info=encoder_info, label_file="/scratch-shared/{}}/ffhq/tar/members".format(os.getenv("USER")))
 
-    generate_lmdb_data(dataset, output_path, num_files=num_files, save_as_bytes=save_as_bytes, encoder_info=encoder_info)
+    generate_lmdb_data(dataset, output_path, num_files=num_files, save_encoded=save_encoded, encoder_info=encoder_info)
 
 
 if __name__ == "__main__":  
@@ -137,12 +138,12 @@ if __name__ == "__main__":
     # Number of partitions/shard/files to subdivide the dataset into
     num_files = 1
     # Flag to save as bytes or pickled arrays
-    save_as_bytes = True
-    encoder_info = True
+    save_encoded = False
+    encoder_info = False
 
     resize = False
-    cifar10_to_lmdb(num_files, save_as_bytes, encoder_info=encoder_info)
-    #imagenet10k_to_lmdb(num_files, save_as_bytes, encoder_info=encoder_info)
-    #ffhq_to_lmdb(num_files, save_as_bytes, encoder_info)
+    cifar10_to_lmdb(num_files, save_encoded, encoder_info=encoder_info)
+    #imagenet10k_to_lmdb(num_files, save_encoded, encoder_info=encoder_info)
+    #ffhq_to_lmdb(num_files, save_encoded, encoder_info)
 
         

@@ -54,7 +54,11 @@ To benchmark different datasets with a variety of settings and different locatio
 python benchmark.py -l <path/to/save/data> -f <data format> -d <dataset>
 ```
 
-To convert your existing data to a specific packed data format, refer to `convert_data/`
+To convert your existing data to a specific packed data format, refer to `convert_data/`. Example:
+```
+cd convert_data/
+python data_to_hdf5.py
+```
 
 ## TODO
 - Benchmark on groups/buckets of files

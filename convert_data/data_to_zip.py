@@ -12,7 +12,7 @@ import torch
 from utils_convert import ImageDataset, transform, collate_fn, collate_fn_encoder_info, TARDataset
 
 
-def generate_zip_data(dataset, path, num_files=1, compressed=False, png_encoded=True, encoder_info=False):
+def generate_zip_data(dataset, path, num_files=1, compressed=False, save_encoded=True, encoder_info=False):
 
     file_ext = dataset.file_ext
     compression = zipfile.ZIP_LZMA if compressed else zipfile.ZIP_STORED
@@ -44,7 +44,7 @@ def generate_zip_data(dataset, path, num_files=1, compressed=False, png_encoded=
         index_str = str(i).zfill(8)
         archive_fname = "{}/img{}{}".format(index_str[:5], index_str, file_ext)
 
-        if png_encoded:
+        if save_encoded:
             image_bits = io.BytesIO()
             if encoder_info:
                 info = batch[2][0]
@@ -104,16 +104,16 @@ def generate_zip_data(dataset, path, num_files=1, compressed=False, png_encoded=
             labels_json = []
     return
 
-def cifar10_to_zip(num_files, png_encoded=False, encoder_info=False):
-    output_path = "data/cifar10/zip"
+def cifar10_to_zip(num_files, save_encoded=False, encoder_info=False):
+    output_path = "..data/cifar10/zip"
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
-    data_path = "data/cifar10/disk/"
+    data_path = "..data/cifar10/disk/"
     dataset = ImageDataset(data_path, encoder_info=encoder_info)
-    generate_zip_data(dataset, output_path, num_files=num_files, png_encoded=png_encoded)
+    generate_zip_data(dataset, output_path, num_files=num_files, save_encoded=save_encoded)
 
-def imagenet10k_to_zip(num_files, png_encoded, resize=False, encoder_info=False):
-    output_path = "data/imagenet10k/zip"
+def imagenet10k_to_zip(num_files, save_encoded, resize=False, encoder_info=False):
+    output_path = "..data/imagenet10k/zip"
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
     if resize:
@@ -122,19 +122,19 @@ def imagenet10k_to_zip(num_files, png_encoded, resize=False, encoder_info=False)
     else:
         transform_ = None
 
-    data_path = "data/imagenet10k/disk/"
+    data_path = "..data/imagenet10k/disk/"
     dataset = ImageDataset(data_path, transform=transform_, prefix="ILSVRC2012_val_", offset_index=1, encoder_info=encoder_info)
-    generate_zip_data(dataset, output_path, num_files=num_files, png_encoded=png_encoded, encoder_info=encoder_info)
+    generate_zip_data(dataset, output_path, num_files=num_files, save_encoded=save_encoded, encoder_info=encoder_info)
 
-def ffhq_to_zip(num_files, png_encoded=False, encoder_info=False):
-    output_path = "/scratch-shared/thomaso/ffhq/zip/"
+def ffhq_to_zip(num_files, save_encoded=False, encoder_info=False):
+    output_path = "/scratch-shared/{}/ffhq/zip/".format(os.getenv("USER"))
 
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
-    data_path = "/scratch-shared/thomaso/ffhq/tar/ffhq_images.tar"
-    dataset = TARDataset(data_path, encoder_info=encoder_info, label_file="/scratch-shared/thomaso/ffhq/tar/members")
+    data_path = "/scratch-shared/{}/ffhq/tar/ffhq_images.tar".format(os.getenv("USER"))
+    dataset = TARDataset(data_path, encoder_info=encoder_info, label_file="/scratch-shared/{}/ffhq/tar/members".format(os.getenv("USER")))
 
-    generate_zip_data(dataset, output_path, num_files=num_files, png_encoded=png_encoded, encoder_info=encoder_info)
+    generate_zip_data(dataset, output_path, num_files=num_files, save_encoded=save_encoded, encoder_info=encoder_info)
 
 
 if __name__ == "__main__":
@@ -149,9 +149,9 @@ if __name__ == "__main__":
        The byte version serializes the image with lossless PNG or the original JPEG compression
     '''
     num_files = 1
-    png_encoded = True
+    save_encoded = True
     resize = False
     encoder_info = True
-    cifar10_to_zip(num_files, png_encoded=png_encoded, encoder_info=encoder_info)
-    #imagenet10k_to_zip(num_files, png_encoded=png_encoded, resize=resize, encoder_info=encoder_info)
-    #ffhq_to_zip(num_files, png_encoded=png_encoded, encoder_info=encoder_info)
+    cifar10_to_zip(num_files, save_encoded=save_encoded, encoder_info=encoder_info)
+    #imagenet10k_to_zip(num_files, save_encoded=save_encoded, resize=resize, encoder_info=encoder_info)
+    #ffhq_to_zip(num_files, save_encoded=save_encoded, encoder_info=encoder_info)
