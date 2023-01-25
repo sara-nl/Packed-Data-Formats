@@ -33,25 +33,6 @@ def transform(new_size, to_tensor=False):
     return transform
 
 
-class TransformCV2:
-    ''' Transform function for TFRecords dataset iterator '''
-    def __init__(self, batch_size, orig_dim=None, resize_dim=256):
-        self.orig_dim = orig_dim
-        self.resize_dim = resize_dim
-        self.batch_size = batch_size
-
-        self.transform = transform(resize_dim, to_tensor=True)
-    
-    def __call__(self, features):
-        if self.orig_dim is not None: # For resize as TFRecords in bytes does not encode back to image shape
-            features["image"] = features["image"].reshape(self.orig_dim, self.orig_dim, 3)
-
-        new_features = np.empty((3, self.resize_dim, self.resize_dim))
-        for i in range(3):
-            new_features[i] = self.transform(features["image"][:,:,i])
-        features["image"] = new_features[[0,2,1], :, :]
-        return features
-
 def collate_fn(batch):
     samples = np.asarray([item[0] for item in batch])
     labels = np.asarray([item[1] for item in batch])
@@ -107,7 +88,6 @@ class ImageDataset(torch.utils.data.Dataset):
         #    image = self.jpeg.decode(fname.read(), pixel_format=0)
         else:
             image = PIL.Image.open(fname)#.convert("RGB") <- loses all image information like dpi, format etc.
-            print(image)
             if self.encoder_info:
                 self.info = self.fill_encoder_info(image)
             image = image.convert("RGB")

@@ -8,9 +8,8 @@ from petastorm.unischema import Unischema,\
 from pyspark.sql import SparkSession
 from pyspark.sql.types import IntegerType
 
-from torchvision import transforms
 
-from data_utils import ImageDataset, TARDataset, transform
+from utils_convert import ImageDataset, TARDataset, transform
 
 
 
@@ -105,6 +104,16 @@ def generate_ffhq_parquet(num_files, png_encoded=False):
     generate_parquet_data(dataset, output_url, rowgroup_size_mb, num_partitions=num_files, png_encoded=png_encoded)
 
 if __name__ == "__main__":
+    '''
+    Creates .parquet file(s) from a given dataset.
+
+    1. Provide the output path to the hdf5 file and the path to the input files
+    2. Choose number of files to split the data into to
+    3. Create a torch dataset instance to iterate through
+    4. Choose by saving the images in bytes or numpy arrays
+       Converting and saving the bytes is 8 times slower but the files are 2 times smaller for images of 256x256x3
+       The byte version serializes the image with lossless PNG or the original JPEG compression
+    '''
     num_files = 1
     png_encoded = False
     resize = False # resize must be true for Unischema Field for ImageNet10k

@@ -9,7 +9,7 @@ import PIL.Image
 
 import torch
 
-from data_utils import ImageDataset, transform, collate_fn, collate_fn_encoder_info, TARDataset
+from utils_convert import ImageDataset, transform, collate_fn, collate_fn_encoder_info, TARDataset
 
 
 def generate_zip_data(dataset, path, num_files=1, compressed=False, png_encoded=True, encoder_info=False):
@@ -138,6 +138,16 @@ def ffhq_to_zip(num_files, png_encoded=False, encoder_info=False):
 
 
 if __name__ == "__main__":
+    '''
+    Creates .zip file(s) from a given dataset.
+
+    1. Provide the output path to the zip file and the path to the input files
+    2. Choose number of files to split the data into to
+    3. Create a torch dataset instance to iterate through
+    4. Choose by saving the images in bytes or numpy arrays
+       Converting and saving the bytes is 8 times slower but the files are 2 times smaller for images of 256x256x3
+       The byte version serializes the image with lossless PNG or the original JPEG compression
+    '''
     num_files = 1
     png_encoded = True
     resize = False

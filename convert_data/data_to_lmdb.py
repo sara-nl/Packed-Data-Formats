@@ -9,7 +9,7 @@ import lmdb
 import torch
 import PIL.Image
 
-from data_utils import ImageDataset, TARDataset, transform, collate_fn, collate_fn_encoder_info
+from utils_convert import ImageDataset, TARDataset, transform, collate_fn, collate_fn_encoder_info
 
 
 def generate_lmdb_data(dataset, path, num_files=4, save_as_bytes=False, encoder_info=False):

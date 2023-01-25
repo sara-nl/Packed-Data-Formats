@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 import io
 
@@ -7,15 +8,12 @@ import h5py
 import torch
 import PIL.Image
 
-from data_utils import ImageDataset, TARDataset, transform, collate_fn, collate_fn_encoder_info
+from utils_convert import ImageDataset, TARDataset, transform, collate_fn, collate_fn_encoder_info
+
 
 def generate_hdf5_data_bytes(dataset, path, encoder_info=True, num_files=4):
-
     num_images = len(dataset)
-
     num_files = np.linspace(0, num_images, num_files+1, dtype=int)[1:]
-
-
     num_file = 0
 
     if encoder_info:
@@ -138,6 +136,7 @@ def generate_hdf5_data(dataset, path, num_files=4):
 
 def cifar10_to_hdf5(num_files=1, save_as_bytes=False, encoder_info=False):
     output_path = "data/cifar10/hdf5/"
+    print(output_path)
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
 
@@ -171,12 +170,10 @@ def imagenet10k_to_hdf5(num_files=1, save_as_bytes=False, resize=True, encoder_i
 
 
 def ffhq_to_hdf5(num_files=1, save_as_bytes=False, encoder_info=False):
-    #output_path = "data/ffhq/hdf5/"
-    output_path = "/scratch-shared/thomaso/ffhq/hdf5"
+    output_path = "/scratch-shared/{}/ffhq/hdf5".format(os.getenv("USER"))
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
-    #data_path = "/projects/2/managed_datasets/FFHQ/ffhq_images.tar.gz"
-    data_path = "/scratch-shared/thomaso/ffhq/tar/ffhq_images.tar"
+    data_path = "/scratch-shared/{}/ffhq/tar/ffhq_images.tar".format(os.getenv("USER"))
     dataset = TARDataset(data_path, encoder_info=encoder_info, label_file="/scratch-shared/thomaso/ffhq/tar/members")
 
     if save_as_bytes:
@@ -185,16 +182,15 @@ def ffhq_to_hdf5(num_files=1, save_as_bytes=False, encoder_info=False):
         generate_hdf5_data(dataset, output_path, num_files=num_files)
 
 if __name__ == "__main__":
-    
     '''
-    Creates .h5 files from a given dataset.
+    Creates .h5 file(s) from a given dataset.
 
     1. Provide the output path to the hdf5 file and the path to the input files
     2. Choose number of files to split the data into to
     3. Create a torch dataset instance to iterate through
     4. Choose by saving the images in bytes or numpy arrays
        Converting and saving the bytes is 8 times slower but the files are 2 times smaller for images of 256x256x3
-       The byte version serializes the image with lossless PNG compression
+       The byte version serializes the image with lossless PNG or the original JPEG compression
     '''
 
     # Number of partitions/shard/files to subdivide the dataset into
@@ -202,7 +198,7 @@ if __name__ == "__main__":
     # Flag to save as bytes or H5 arrays
     save_as_bytes = True
     resize = False # resize must be true for HDF5 for ImageNet10k
-    encoder_info = False
+    encoder_info = True
     cifar10_to_hdf5(num_files, save_as_bytes, encoder_info=encoder_info)
     #imagenet10k_to_hdf5(num_files, save_as_bytes, encoder_info=encoder_info)
     #ffhq_to_hdf5(num_files, save_as_bytes, encoder_info)

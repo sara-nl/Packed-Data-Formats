@@ -33,7 +33,6 @@ if turbojpeg:
 # Deep Learning
 import numpy as np
 import torch
-from torchvision import transforms
 from torchvision.transforms.functional import to_tensor
 
 
@@ -115,9 +114,6 @@ class ImageDataset(torch.utils.data.Dataset):
             self.cached_images.append(image)
 
     def __getitem__(self, index):
-        '''
-        Retrieve image and label and return to dataloader
-        '''
         label = self.labels[index]
         if self.cache:
             image = self.cached_images[index]
