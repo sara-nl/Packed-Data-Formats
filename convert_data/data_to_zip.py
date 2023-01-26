@@ -105,15 +105,15 @@ def generate_zip_data(dataset, path, num_files=1, compressed=False, save_encoded
     return
 
 def cifar10_to_zip(num_files, save_encoded=False, encoder_info=False):
-    output_path = "..data/cifar10/zip"
+    output_path = "../data/cifar10/zip"
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
-    data_path = "..data/cifar10/disk/"
+    data_path = "../data/cifar10/disk/"
     dataset = ImageDataset(data_path, encoder_info=encoder_info)
     generate_zip_data(dataset, output_path, num_files=num_files, save_encoded=save_encoded)
 
 def imagenet10k_to_zip(num_files, save_encoded, resize=False, encoder_info=False):
-    output_path = "..data/imagenet10k/zip"
+    output_path = "../data/imagenet10k/zip"
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
     if resize:
@@ -122,7 +122,7 @@ def imagenet10k_to_zip(num_files, save_encoded, resize=False, encoder_info=False
     else:
         transform_ = None
 
-    data_path = "..data/imagenet10k/disk/"
+    data_path = "../data/imagenet10k/disk/"
     dataset = ImageDataset(data_path, transform=transform_, prefix="ILSVRC2012_val_", offset_index=1, encoder_info=encoder_info)
     generate_zip_data(dataset, output_path, num_files=num_files, save_encoded=save_encoded, encoder_info=encoder_info)
 
@@ -149,9 +149,9 @@ if __name__ == "__main__":
        The byte version serializes the image with lossless PNG or the original JPEG compression
     '''
     num_files = 1
-    save_encoded = True
-    resize = False
-    encoder_info = True
-    cifar10_to_zip(num_files, save_encoded=save_encoded, encoder_info=encoder_info)
-    #imagenet10k_to_zip(num_files, save_encoded=save_encoded, resize=resize, encoder_info=encoder_info)
+    save_encoded = False
+    resize = True
+    encoder_info = False
+    #cifar10_to_zip(num_files, save_encoded=save_encoded, encoder_info=encoder_info)
+    imagenet10k_to_zip(num_files, save_encoded=save_encoded, resize=resize, encoder_info=encoder_info)
     #ffhq_to_zip(num_files, save_encoded=save_encoded, encoder_info=encoder_info)

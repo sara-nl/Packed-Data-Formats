@@ -7,14 +7,21 @@ import tarfile
 import json
 import io
 
+# Libraries for fast image reading [OPTIONAL]
 try:
     import pyspng
 except ImportError:
     pyspng = None
+
 try:
     import turbojpeg
 except ImportError:
     turbojpeg = None
+
+if turbojpeg:
+    turbojpeg_path = "/opt/TurboVNC/java/libturbojpeg.so"
+    # Test
+    turbojpeg_decoder = turbojpeg.TurboJPEG(turbojpeg_path)
 
 import numpy as np
 import PIL.Image
@@ -108,7 +115,7 @@ class ImageDataset(torch.utils.data.Dataset):
         else:
             info = {}
         encoder_info = {
-            "mode": image.mode,
+            "mode": "RGB",
             "format": image.format,
             "progressive": info.get("progressive", False) or info.get("progression", False), # progressive
             "smooth": info.get("smooth", 0), # smooth
@@ -163,15 +170,12 @@ class TARDataset(torch.utils.data.Dataset):
         self.info = None
         print(f"Initializing TAR dataset for: {self.path}")
         # First uncompress
-        #if self.path.endswith(".tar.gz"):
-        # self.all_fnames = tarfile.TarFile(self.path).getmembers() # Does not work for tar.gz?
+        #if self.path.endswith(".tar.gz"): # Cannot be parallellized and is thus slow
+        # self.all_fnames = tarfile.TarFile(self.path).getmembers() #
 
         #assert(self.path.endswith(".tar"))
 
-        # open tar file. in a multiprocessing setting (e.g. DataLoader workers), we
-        # have to open one file handle per worker (stored as the tar_obj dict), since
-        # when the multiprocessing method is 'fork', the workers share this TarDataset.
-        # we want one file handle per worker because TarFile is not thread-safe.
+        # Tar Dataset not thread-safe so we give handle to multiple workers in the init when the workers are forked
         worker = get_worker_info()
         worker = worker.id if worker else None
         self.tar_handle = {worker: tarfile.open(path)}
@@ -191,11 +195,9 @@ class TARDataset(torch.utils.data.Dataset):
                 pickle.dump(self.members_by_name, fp)
             print(f"Finished create a members file. Please add the following path to the init as label_file next time: ", Path(path).parent+"members")
 
-        print(f"Finished self.members in {time.time() - start}")
-        #self.members_by_name = {m.name: m for m in members if m.name in PIL.Image.EXTENSION}
+        print(f"Finished get.members in {time.time() - start}")
         start = time.time()
         self._get_all_samples()
-        print(f"Finished get all samples {time.time() - start}")
 
         label_fname = None # or "string"
 
@@ -204,15 +206,9 @@ class TARDataset(torch.utils.data.Dataset):
             self._parse_label_file(worker, label_fname)
         else:
             self._get_all_labels()
-        print(f"Finished get all labels {time.time() - start}")
 
         self.transform = transform
 
-
-        ################ For JPEG: #######################
-        if turbojpeg:
-            self.jpeg = turbojpeg.TurboJPEG("/opt/TurboVNC/java/libturbojpeg.so")
-        ##################################################
 
 
     def _get_all_samples(self):
@@ -261,8 +257,8 @@ class TARDataset(torch.utils.data.Dataset):
         f_handle = self._get_file(fname)
         if self.file_ext.lower() == ".png" and pyspng and not self.encoder_info: 
             image = pyspng.load(f_handle.read())
-        #elif self.file_ext.lower() == ".jpeg" and turbojpeg:
-        #    image = self.jpeg.decode(fname.read(), pixel_format=0)
+        elif self.file_ext.lower() == ".jpeg" and turbojpeg:
+            image = self.jpeg.decode(fname.read(), pixel_format=0)
         else:
             image = PIL.Image.open(io.BytesIO(f_handle.read()))#.convert("RGB") <- loses all original image information like dpi, format etc.
             if self.encoder_info:
@@ -320,12 +316,13 @@ class TARDataset(torch.utils.data.Dataset):
 
     def __del__(self):
         """Close the TarFile file handles on exit."""
-        for o in self.tar_handle.values():
-            o.close()
+        if hasattr(self, "tar_handle"):
+            for o in self.tar_handle.values():
+                o.close()
 
 
     def __getstate__(self):
         """Serialize without the TarFile references, for multiprocessing compatibility."""
         state = dict(self.__dict__)
-        state['tar_handle'] = {}
+        state["tar_handle"] = {}
         return state

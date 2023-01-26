@@ -90,16 +90,16 @@ def generate_lmdb_data(dataset, path, num_files=4, save_encoded=False, encoder_i
     return
 
 def cifar10_to_lmdb(num_files, save_encoded, encoder_info=False):
-    output_path = "..data/cifar10/lmdb"
+    output_path = "../data/cifar10/lmdb"
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
-    data_path = "..data/cifar10/disk/"
+    data_path = "../data/cifar10/disk/"
     dataset = ImageDataset(data_path, encoder_info=encoder_info)
     generate_lmdb_data(dataset, output_path, num_files=num_files, save_encoded=save_encoded, encoder_info=encoder_info)
 
 
 def imagenet10k_to_lmdb(num_files, save_encoded=False, resize=True, encoder_info=False):
-    output_path = "..data/imagenet10k/lmdb"
+    output_path = "../data/imagenet10k/lmdb"
     Path(output_path).mkdir(parents=True, exist_ok=True)
     
     # ImageNet has various resolutions so resize to a fixed size
@@ -109,7 +109,7 @@ def imagenet10k_to_lmdb(num_files, save_encoded=False, resize=True, encoder_info
     else:
         transform_ = None
 
-    data_path = "..data/imagenet10k/disk/"
+    data_path = "../data/imagenet10k/disk/"
     dataset = ImageDataset(data_path, prefix="ILSVRC2012_val_", transform=transform_, offset_index=1, encoder_info=encoder_info)
     generate_lmdb_data(dataset, output_path, num_files=num_files, save_encoded=save_encoded, encoder_info=encoder_info)
 
@@ -119,7 +119,7 @@ def ffhq_to_lmdb(num_files, save_encoded=False, encoder_info=False):
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
     data_path = "/scratch-shared/{}/ffhq/tar/ffhq_images.tar".format(os.getenv("USER"))
-    dataset = TARDataset(data_path, encoder_info=encoder_info, label_file="/scratch-shared/{}}/ffhq/tar/members".format(os.getenv("USER")))
+    dataset = TARDataset(data_path, encoder_info=encoder_info, label_file="/scratch-shared/{}/ffhq/tar/members".format(os.getenv("USER")))
 
     generate_lmdb_data(dataset, output_path, num_files=num_files, save_encoded=save_encoded, encoder_info=encoder_info)
 
@@ -138,12 +138,12 @@ if __name__ == "__main__":
     # Number of partitions/shard/files to subdivide the dataset into
     num_files = 1
     # Flag to save as bytes or pickled arrays
-    save_encoded = False
-    encoder_info = False
+    save_encoded = True
+    encoder_info = True
 
-    resize = False
-    cifar10_to_lmdb(num_files, save_encoded, encoder_info=encoder_info)
-    #imagenet10k_to_lmdb(num_files, save_encoded, encoder_info=encoder_info)
+    resize = True
+    #ifar10_to_lmdb(num_files, save_encoded, encoder_info=encoder_info)
+    imagenet10k_to_lmdb(num_files, save_encoded, encoder_info=encoder_info)
     #ffhq_to_lmdb(num_files, save_encoded, encoder_info)
 
         

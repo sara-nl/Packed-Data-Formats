@@ -118,15 +118,15 @@ def generate_tar_data(dataset, path, num_files=1, save_encoded=True, encoder_inf
 
 
 def cifar10_to_tar(num_files, save_encoded):
-    output_path = "..data/cifar10/tar"
+    output_path = "../data/cifar10/tar_encoded"
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
-    data_path = "..data/cifar10/disk/"
+    data_path = "../data/cifar10/disk/"
     dataset = ImageDataset(data_path)
     generate_tar_data(dataset, output_path, num_files=num_files, save_encoded=save_encoded)
 
 def imagenet10k_to_tar(num_files, save_encoded, resize=True, encoder_info=False):
-    output_path = "..data/imagenet10k/tar"
+    output_path = "../data/imagenet10k/tar"
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
     if resize:
@@ -135,17 +135,17 @@ def imagenet10k_to_tar(num_files, save_encoded, resize=True, encoder_info=False)
     else:
         transform_ = None
 
-    data_path = "..data/imagenet10k/disk/"
+    data_path = "../data/imagenet10k/disk/"
     dataset = ImageDataset(data_path, transform=transform_, prefix="ILSVRC2012_val_", offset_index=1, encoder_info=encoder_info)
     generate_tar_data(dataset, output_path, num_files=num_files, save_encoded=save_encoded, encoder_info=encoder_info)
 
 def ffhq_to_tar(num_files, save_encoded=False, encoder_info=False):
-    output_path = "/scratch-shared/{}}/ffhq/tar_bytes/".format(os.getenv("USER"))
+    output_path = "/scratch-shared/{}/ffhq/tar_bytes/".format(os.getenv("USER"))
 
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
     data_path = "/scratch-shared/{}/ffhq/tar/ffhq_images.tar".format(os.getenv("USER"))
-    dataset = TARDataset(data_path, encoder_info=encoder_info, label_file="/scratch-shared/{}}/ffhq/tar/members".format(os.getenv("USER")))
+    dataset = TARDataset(data_path, encoder_info=encoder_info, label_file="/scratch-shared/{}/ffhq/tar/members".format(os.getenv("USER")))
 
     generate_tar_data(dataset, output_path, num_files=num_files, save_encoded=save_encoded, encoder_info=encoder_info)
 
@@ -161,9 +161,9 @@ if __name__ == "__main__":
        The byte version serializes the image with lossless PNG or the original JPEG compression
     '''
     num_files = 1
-    save_encoded = False
-    encoder_info = False
+    save_encoded = True
+    encoder_info = True
     resize = False
-    cifar10_to_tar(num_files, save_encoded)
-    #imagenet10k_to_tar(num_files, save_encoded=save_encoded, compressed=compressed, resize=resize, encoder_info=encoder_info)
-    #ffhq_to_tar(num_files, save_encoded=save_encoded, encoder_info=encoder_info)
+    #cifar10_to_tar(num_files, save_encoded)
+    #imagenet10k_to_tar(num_files, save_encoded=save_encoded, resize=resize, encoder_info=encoder_info)
+    ffhq_to_tar(num_files, save_encoded=save_encoded, encoder_info=encoder_info)

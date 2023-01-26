@@ -40,7 +40,7 @@ def generate_tfrecords_data(dataset, path, num_files=4, save_encoded=True, encod
 
 
         if save_encoded:
-
+            image_bits = io.BytesIO()
             if encoder_info:
                 info = batch[2][0]
                 image_pil = PIL.Image.new("RGB", info["size"]) # force grayscale to RGB
@@ -56,7 +56,6 @@ def generate_tfrecords_data(dataset, path, num_files=4, save_encoded=True, encod
                 image_pil.layers = info["layers"]
                 image_pil.quantization = info["quantization"]
 
-                image_bits = io.BytesIO()
 
                 format = image_pil.format.lower()
                 if format == "png":
@@ -65,10 +64,11 @@ def generate_tfrecords_data(dataset, path, num_files=4, save_encoded=True, encod
                     quality = "keep"
 
                 image_pil.save(image_bits, format=image_pil.format.lower(), quality=quality) # slight discrepancy because compression algorithm might not be same?
-                image_bytes = image_bits.getvalue()
             else:
                 image_pil = PIL.Image.fromarray(image)
                 image_pil.save(image_bits, format="png")
+            image_bytes = image_bits.getvalue()
+
             image_pil.close()
 
         else:
@@ -125,19 +125,19 @@ def create_index_file(tfrecord_dir, index_file):
 
 
 def cifar10_to_tfrecords(num_files, save_encoded=False, encoder_info=False):
-    output_path = "..data/cifar10/tfrecords/"
-    index_file = "..data/cifar10/tfrecords/data.index"
+    output_path = "../data/cifar10/tfrecords/"
+    index_file = "../data/cifar10/tfrecords/data.index"
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
-    data_path = "..data/cifar10/disk/"
+    data_path = "../data/cifar10/disk/"
     dataset = ImageDataset(data_path, encoder_info=encoder_info)
     generate_tfrecords_data(dataset, output_path, num_files=num_files, save_encoded=save_encoded, encoder_info=encoder_info)
     create_index_file(output_path, index_file)
 
 
 def imagenet10k_to_tfrecords(num_files, save_encoded=False, resize=False, encoder_info=False):
-    output_path = "..data/imagenet10k/tfrecords/"
-    index_file = "..data/imagenet10k/tfrecords/data.index"
+    output_path = "../data/imagenet10k/tfrecords/"
+    index_file = "../data/imagenet10k/tfrecords/data.index"
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
     # ImageNet has various resolutions so resize to a fixed size
@@ -147,20 +147,20 @@ def imagenet10k_to_tfrecords(num_files, save_encoded=False, resize=False, encode
     else:
         transform_ = None
 
-    data_path = "..data/imagenet10k/disk/"
+    data_path = "../data/imagenet10k/disk/"
     dataset = ImageDataset(data_path, prefix="ILSVRC2012_val_", transform=transform_, offset_index=1, encoder_info=encoder_info)
     generate_tfrecords_data(dataset, output_path, num_files=num_files, save_encoded=save_encoded, encoder_info=encoder_info)
     create_index_file(output_path, index_file)
 
 
 def ffhq_to_tfrecords(num_files, save_encoded=False, encoder_info=False):
-    output_path = "/scratch-shared/{}/ffhq/tfrecords/".format(os.getenv("USER"))
-    index_file = "/scratch-shared/{}/ffhq/tfrecords/data.index".format(os.getenv("USER"))
+    output_path = "/scratch-shared/{}/ffhq/tfrecords_encoded/".format(os.getenv("USER"))
+    index_file = "/scratch-shared/{}/ffhq/tfrecords_encoded/data.index".format(os.getenv("USER"))
 
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
-    data_path = "/scratch-shared/{}}/ffhq/tar/ffhq_images.tar".format(os.getenv("USER"))
-    dataset = TARDataset(data_path, encoder_info=encoder_info)
+    data_path = "/scratch-shared/{}/ffhq/tar/ffhq_images.tar".format(os.getenv("USER"))
+    dataset = TARDataset(data_path, encoder_info=encoder_info, label_file="/scratch-shared/{}/ffhq/tar/members".format(os.getenv("USER")))
 
     generate_tfrecords_data(dataset, output_path, num_files=num_files, save_encoded=save_encoded, encoder_info=encoder_info)
     create_index_file(output_path, index_file)
@@ -177,9 +177,9 @@ if __name__ == "__main__":
        The byte version serializes the image with lossless PNG or the original JPEG compression
     '''
     num_files = 1
-    save_encoded = False
-    resize = True
-    encoder_info = False
-    cifar10_to_tfrecords(num_files, save_encoded)
+    save_encoded = True
+    resize = False
+    encoder_info = True
+    #cifar10_to_tfrecords(num_files, save_encoded)
     #imagenet10k_to_tfrecords(num_files, save_encoded, resize, encoder_info)
-    #ffhq_to_tfrecords(num_files, save_encoded)
+    ffhq_to_tfrecords(num_files, save_encoded)
