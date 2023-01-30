@@ -9,8 +9,9 @@ def parse_args():
     parser.add_argument("-d", "--dataset", type=str, default="CIFAR10", choices=datasets)
     
     # Choice of image formats
-    formats = ["Image", "ZIP", "HDF5", "LMDB", "Petastorm", "TFRecords"]
+    formats = ["Image", "HDF5", "LMDB", "Petastorm", "TAR", "TFRecords", "ZIP"]
     parser.add_argument("-f", "--format", nargs="+", default=formats, choices=formats)
+    parser.add_argument("-le", "--load-encoded", type=int, default=0, choices=[0,1])
 
     # If data is copied to tmp or dev
     parser.add_argument("-l", "--location", type=str, default="home", choices=["home", "/scratch-local/", "/scratch-shared/"])

@@ -168,7 +168,7 @@ def imagenet10k_to_hdf5(num_files=1, save_encoded=False, resize=True, encoder_in
 
 
 def ffhq_to_hdf5(num_files=1, save_encoded=False, encoder_info=False):
-    output_path = "/scratch-shared/{}/ffhq/hdf5_encodeds".format(os.getenv("USER"))
+    output_path = "/scratch-shared/{}/ffhq/hdf5".format(os.getenv("USER"))
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
     data_path = "/scratch-shared/{}/ffhq/tar/ffhq_images.tar".format(os.getenv("USER"))
@@ -194,9 +194,11 @@ if __name__ == "__main__":
     # Number of partitions/shard/files to subdivide the dataset into
     num_files = 1
     # Flag to save as bytes or H5 arrays
-    save_encoded = True
-    resize = False # resize must be true for HDF5 for ImageNet10k
-    encoder_info = True
+    save_encoded = False
+    # Flag to use the original encoding
+    encoder_info = False
+    # Flag to resize the samples to a common resolution
+    resize = False
     #cifar10_to_hdf5(num_files, save_encoded, encoder_info=encoder_info)
     #imagenet10k_to_hdf5(num_files, save_encoded, encoder_info=encoder_info)
     ffhq_to_hdf5(num_files, save_encoded, encoder_info)

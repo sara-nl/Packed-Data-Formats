@@ -176,10 +176,14 @@ if __name__ == "__main__":
        Converting and saving the bytes is 8 times slower but the files are 2 times smaller for images of 256x256x3
        The byte version serializes the image with lossless PNG or the original JPEG compression
     '''
+    # Number of partitions/shard/files to subdivide the dataset into
     num_files = 1
-    save_encoded = True
+    # Flag to save as bytes or H5 arrays
+    save_encoded = False
+    # Flag to use the original encoding
+    encoder_info = False
+    # Flag to resize the samples to a common resolution
     resize = False
-    encoder_info = True
     #cifar10_to_tfrecords(num_files, save_encoded)
     #imagenet10k_to_tfrecords(num_files, save_encoded, resize, encoder_info)
     ffhq_to_tfrecords(num_files, save_encoded)

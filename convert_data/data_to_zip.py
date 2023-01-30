@@ -148,10 +148,14 @@ if __name__ == "__main__":
        Converting and saving the bytes is 8 times slower but the files are 2 times smaller for images of 256x256x3
        The byte version serializes the image with lossless PNG or the original JPEG compression
     '''
+    # Number of partitions/shard/files to subdivide the dataset into
     num_files = 1
+    # Flag to save as bytes or H5 arrays
     save_encoded = False
-    resize = True
+    # Flag to use the original encoding
     encoder_info = False
+    # Flag to resize the samples to a common resolution
+    resize = False
     #cifar10_to_zip(num_files, save_encoded=save_encoded, encoder_info=encoder_info)
-    imagenet10k_to_zip(num_files, save_encoded=save_encoded, resize=resize, encoder_info=encoder_info)
-    #ffhq_to_zip(num_files, save_encoded=save_encoded, encoder_info=encoder_info)
+    #imagenet10k_to_zip(num_files, save_encoded=save_encoded, resize=resize, encoder_info=encoder_info)
+    ffhq_to_zip(num_files, save_encoded=save_encoded, encoder_info=encoder_info)

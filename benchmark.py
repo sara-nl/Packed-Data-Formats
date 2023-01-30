@@ -22,7 +22,7 @@ from util import TransformCV2, transform as transform_fn
 
 
 
-def benchmark_petastorm(path, epochs, batch_size, num_workers, dataset_name, resize_dim=256, pin_memory=False, cache=False, warm_start=False, persistent_workers=False, shuffle=True, device="cuda"):
+def benchmark_petastorm(path, epochs, batch_size, num_workers, format, len_dataset, resize_dim=256, pin_memory=False, cache=False, warm_start=False, persistent_workers=False, shuffle=True, device="cuda"):
     """ Perform a benchmark on petastorm/parquet files by running a dataloader through a number of epochs
         Args:
             epochs (int): number of epochs (number of times of looping through the dataset)
@@ -37,16 +37,10 @@ def benchmark_petastorm(path, epochs, batch_size, num_workers, dataset_name, res
         Returns:
             dict: timings per number of worker for the epochs
         """
-    print("Start experiment (GPU) on {} with: {} epochs and batch size {}".format(dataset_name, epochs, batch_size))
+    print("Start experiment (GPU) on {} with: {} epochs and batch size {}".format(format, epochs, batch_size))
 
-    results = {"dataset": dataset_name, "epochs": epochs, "num_workers": num_workers, "batch_size": batch_size, "time": []}
+    results = {"format": format, "epochs": epochs, "num_workers": num_workers, "batch_size": batch_size, "time": []}
 
-    # Add your dataset length
-    lengths = {"CIFAR10": 50000,
-               "ImageNet10k": 10000,
-               "FFHQ": 70000}
-
-    len_dataset = lengths[dataset_name]
     len_dataset = np.ceil(len_dataset / batch_size)
 
     cache_type = "local-disk" if cache else "null"
@@ -69,7 +63,7 @@ def benchmark_petastorm(path, epochs, batch_size, num_workers, dataset_name, res
         if num_worker == 0:
             pool_type = "dummy"
         else:
-            pool_type = "thread" #process
+            pool_type = "thread" #thread
             
         with psDataLoader(make_reader(path, 
                                       reader_pool_type = pool_type, 
@@ -86,24 +80,24 @@ def benchmark_petastorm(path, epochs, batch_size, num_workers, dataset_name, res
                 start = time.time()
                 print("Finished warm start")
             # Only calls this once but does shuffle and continues len(dataset) * num_epochs
-            for i, batch in enumerate(train_loader):  
+            timer_per_epoch = time.time()
+            for i, batch in enumerate(train_loader):
                 images, labels = map(lambda tensor: tensor.to(device, non_blocking=pin_memory), (batch["image"], batch["label"]))
-                assert(images.is_cuda)
-                assert(labels.is_cuda)
-                if i == len_dataset and warm_start:
+                #if (i % len_dataset) == 0 and warm_start:
+                if i == len_dataset:
                     start = time.time()
+                    print(f"Epoch {0} finished in {time.time() - timer_per_epoch}")
 
             end = time.time()
             results["time"].append(end - start)
             results["throughput"] = len_dataset * epochs / np.array(results["time"])
             print("Finish with: {} second, num_workers={}".format(end - start, num_worker))
 
-            print("Number of files: ", i)
 
     return results
 
 
-def benchmark_gpu(dataset, epochs, batch_size, num_workers, dataset_name, persistent_workers=False, pin_memory=True, warm_start=False, shuffle=True, device="cuda"):
+def benchmark_gpu(dataset, epochs, batch_size, num_workers, format, persistent_workers=False, pin_memory=True, warm_start=False, shuffle=True, device="cuda"):
     """ Perform a benchmark on GPU files by running a dataloader through a number of epochs
         Args:
             epochs (int): number of epochs (number of times of looping through the dataset)
@@ -118,9 +112,9 @@ def benchmark_gpu(dataset, epochs, batch_size, num_workers, dataset_name, persis
         Returns:
             dict: timings per number of worker for the epochs
         """
-    print("Start experiment (GPU) on {} with: {} epochs and batch size {}".format(dataset_name, epochs, batch_size))
+    print("Start experiment (GPU) on {} with: {} epochs and batch size {}".format(format, epochs, batch_size))
 
-    results = {"dataset": dataset_name, 
+    results = {"format": format, 
                "epochs": epochs, 
                "num_workers": num_workers, 
                "batch_size": batch_size, 
@@ -147,8 +141,6 @@ def benchmark_gpu(dataset, epochs, batch_size, num_workers, dataset_name, persis
             timer_per_epoch = time.time()
             for i, (images, labels) in enumerate(dataloader):
                 images, labels = map(lambda tensor: tensor.to(device, non_blocking=pin_memory), (images, labels))
-                assert(images.is_cuda)
-                assert(labels.is_cuda)
 
             print(f"Epoch {epoch} finished in {time.time() - timer_per_epoch}")
         end = time.time()
@@ -158,10 +150,10 @@ def benchmark_gpu(dataset, epochs, batch_size, num_workers, dataset_name, persis
     return results
 
 
-def benchmark_gpu_tfrecords(dataset, epochs, batch_size, num_workers, dataset_name, persistent_workers=False, shuffle=False, pin_memory=True, warm_start=False, device="cuda"):
-    print("Start experiment {} with: {} epochs and batch size {}".format(dataset_name, epochs, batch_size))
+def benchmark_gpu_tfrecords(dataset, epochs, batch_size, num_workers, format, len_dataset, persistent_workers=False, shuffle=False, pin_memory=True, warm_start=False, device="cuda"):
+    print("Start experiment {} with: {} epochs and batch size {}".format(format, epochs, batch_size))
 
-    results = {"dataset": dataset_name, 
+    results = {"format": format, 
                "epochs": epochs, 
                "num_workers": num_workers, 
                "batch_size": batch_size, 
@@ -188,13 +180,11 @@ def benchmark_gpu_tfrecords(dataset, epochs, batch_size, num_workers, dataset_na
             timer_per_epoch = time.time()
             for i, batch in enumerate(dataloader):
                 images, labels = map(lambda tensor: tensor.to(device, non_blocking=pin_memory), (batch["image"], batch["label"]))
-                assert(images.is_cuda)
-                assert(labels.is_cuda)
 
             print(f"Epoch {epoch} finished in {time.time() - timer_per_epoch}")
         end = time.time()
         results["time"].append(end - start)
-        results["throughput"] = len(dataset) * epochs / np.array(results["time"])
+        results["throughput"] = len_dataset * epochs / np.array(results["time"])
         print("Finish with: {} second, num_workers={}".format(end - start, num_worker))
     return results
 
@@ -207,7 +197,7 @@ def plot_benchmarks(results, x_label, title=None, log=False, savename=None):
     all_plots = []
     epochs = results[0]["epochs"]
     for result in results:
-        temp, = plt.plot(result["num_workers"], result["throughput"], "x", label=result["dataset"])
+        temp, = plt.plot(result["num_workers"], result["throughput"], "x", label=result["format"])
         all_plots.append(temp)
 
     if title is None:
@@ -235,7 +225,7 @@ def save_results_to_file(results, filename):
     str_write = ""
     with open(filename, "w") as f:
         for result in results:
-            str_write += result["dataset"] + "\n"
+            str_write += result["format"] + "\n"
             for w, t in zip(result["num_workers"], result["time"]):
                 str_write += "Finished in: {} seconds with num workers: {}\n".format(t, w)
         f.write(str_write) 
@@ -295,7 +285,7 @@ def copy_data_to_folder(old_path, new_path):
     return new_path_out
 
 
-def run_benchmarks(dataset_name, data_paths, epochs, batch_size, num_workers, cache, transform, device, **dataloader_kwargs):
+def run_benchmarks(dataset_name, data_paths, epochs, batch_size, num_workers, cache, load_encoded, transform, **dataloader_kwargs):
     results = []
     if dataset_name == "CIFAR10":
         orig_dim = 32
@@ -307,26 +297,31 @@ def run_benchmarks(dataset_name, data_paths, epochs, batch_size, num_workers, ca
         orig_dim = 1024
         resize_dim = 256 
 
+    # Add your dataset length
+    lengths = {"CIFAR10": 50000,
+               "ImageNet10k": 10000,
+               "FFHQ": 70000}
+
 
     # TODO: maybe nicer to put the to_tensor() in the else here...
-    for name, path in data_paths.items():
+    for format, path in data_paths.items():
         transform_fn_ = transform_fn(resize_dim, to_tensor=True) if transform else None
+        len_dataset = lengths[dataset_name]
 
-        start = time.time()
-        if name == "Image":
+        if format == "Image":
             if dataset_name == "ImageNet10k":
                 dataset = ImageDataset(path, transform=transform_fn_, cache=cache, prefix="ILSVRC2012_val_", offset_index=1)
             else:
                 dataset = ImageDataset(path, transform=transform_fn_, cache=cache)
-        elif name == "ZIP":
-            dataset = ZIPDataset(path, cache=cache, transform=transform_fn_)
-        elif name == "TAR":
-            dataset = TARDataset(path, cache=cache, transform=transform_fn_)
-        elif name == "HDF5":
-            dataset = H5Dataset(path, cache=cache, transform=transform_fn_)
-        elif name == "LMDB":
-            dataset = LMDBDataset(path, cache=cache, transform=transform_fn_)
-        elif name == "TFRecords":
+        elif format == "ZIP":
+            dataset = ZIPDataset(path, cache=cache, transform=transform_fn_, load_encoded=load_encoded)
+        elif format == "TAR":
+            dataset = TARDataset(path, cache=cache, transform=transform_fn_, load_encoded=load_encoded)
+        elif format == "HDF5":
+            dataset = H5Dataset(path, cache=cache, transform=transform_fn_, load_encoded=load_encoded)
+        elif format == "LMDB":
+            dataset = LMDBDataset(path, cache=cache, transform=transform_fn_, load_encoded=load_encoded)
+        elif format == "TFRecords":
             description = {"image": "byte", "label": "int"}
             if transform:
                 resize_dim = resize_dim
@@ -338,19 +333,13 @@ def run_benchmarks(dataset_name, data_paths, epochs, batch_size, num_workers, ca
             else:
                 dataset = TFRecordDataset(path[0], path[1], description, transform=transform_fn_)
             dataloader_kwargs["shuffle"] = False
-            #print(item["image"].shape)
-            #exit()
         
-        print(f"Time to initialize dataset {name}: {time.time() - start}")
-        if name == "Petastorm":
-            results_dataset = benchmark_petastorm(path, epochs, batch_size, num_workers, dataset_name, device=device, resize_dim=resize_dim, **dataloader_kwargs)
-        #elif name == "TFRecords":
-        #    if device != "cuda":
-        #        raise NotImplementedError
-        #    else:
-        #        results_dataset = benchmark_gpu_tfrecords(dataset, epochs, batch_size, num_workers, name, **dataloader_kwargs)
+        if format == "Petastorm":
+            results_dataset = benchmark_petastorm(path, epochs, batch_size, num_workers, format, len_dataset, resize_dim=resize_dim, **dataloader_kwargs)
+        elif format == "TFRecords":
+            results_dataset = benchmark_gpu_tfrecords(dataset, epochs, batch_size, num_workers, format, len_dataset, **dataloader_kwargs)
         else:
-            results_dataset = benchmark_gpu(dataset, epochs, batch_size, num_workers, name, **dataloader_kwargs)
+            results_dataset = benchmark_gpu(dataset, epochs, batch_size, num_workers, format, **dataloader_kwargs)
 
         results.append(results_dataset)
 
@@ -371,6 +360,8 @@ def main():
     batch_size = args.batch_size
     num_workers = args.num_workers
     persistent_workers = args.persistent_workers
+    transform = args.transform
+    load_encoded = args.load_encoded
     
     # Hardcoded data prefix location where data is stored
     prefix = "data/"
@@ -378,7 +369,7 @@ def main():
     dataset_path = dataset.lower()
 
     data_path_image = f"{prefix}/{dataset_path}/disk/"
-    data_path_h5 = f"{prefix}/{dataset_path}/hdf5/part0_bytes.h5"
+    data_path_h5 = f"{prefix}/{dataset_path}/hdf5/part0.h5"
     data_path_lmdb = f"{prefix}/{dataset_path}/lmdb/part0.lmdb"
     data_path_zip = f"{prefix}/{dataset_path}/zip/part0.zip"
     data_path_tar = f"{prefix}/{dataset_path}/tar/part0.tar"
@@ -401,14 +392,13 @@ def main():
                          "persistent_workers": persistent_workers,
                          "warm_start": bool(args.warm_start),
                          "pin_memory": bool(args.pin_memory),
-                         "transform": bool(args.transform),
                          "shuffle": bool(args.shuffle),
                         }
 
 
     # Copy files to system monitor if necessary and prepare data paths
     data_paths = prepare_data(data_paths, args.format, args.location)
-    results = run_benchmarks(dataset, data_paths, epochs, batch_size, num_workers, cache, **dataloader_kwargs)
+    results = run_benchmarks(dataset, data_paths, epochs, batch_size, num_workers, cache, load_encoded, transform, **dataloader_kwargs)
 
 
     x_label = "Number of processes"

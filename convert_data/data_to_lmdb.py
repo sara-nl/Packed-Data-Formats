@@ -137,13 +137,14 @@ if __name__ == "__main__":
     '''
     # Number of partitions/shard/files to subdivide the dataset into
     num_files = 1
-    # Flag to save as bytes or pickled arrays
-    save_encoded = True
-    encoder_info = True
-
-    resize = True
+    # Flag to save as bytes or H5 arrays
+    save_encoded = False
+    # Flag to use the original encoding
+    encoder_info = False
+    # Flag to resize the samples to a common resolution
+    resize = False
     #ifar10_to_lmdb(num_files, save_encoded, encoder_info=encoder_info)
-    imagenet10k_to_lmdb(num_files, save_encoded, encoder_info=encoder_info)
-    #ffhq_to_lmdb(num_files, save_encoded, encoder_info)
+    #imagenet10k_to_lmdb(num_files, save_encoded, encoder_info=encoder_info)
+    ffhq_to_lmdb(num_files, save_encoded, encoder_info)
 
         

@@ -26,9 +26,12 @@ except ImportError:
     turbojpeg = None
 
 if turbojpeg:
-    turbojpeg_path = "/opt/TurboVNC/java/libturbojpeg.so"
-    # Test
-    turbojpeg_decoder = turbojpeg.TurboJPEG(turbojpeg_path)
+    try:
+        turbojpeg_path = "/opt/TurboVNC/java/libturbojpeg.so"
+        # Test
+        turbojpeg_decoder = turbojpeg.TurboJPEG(turbojpeg_path)
+    except OSError:
+        print("turboJPEG was installed but not found. Continuing without")
 
 # Deep Learning
 import numpy as np
@@ -149,16 +152,16 @@ class H5Dataset(torch.utils.data.Dataset):
         Args:
             path (str): location where the images are stored on disk
             transform (obj): torchvision.transforms object or None
-            save_encoded (bool): whether the images within the .h5 file are encoded or saved as bytes directly
+            load_encoded (bool): whether the images within the .h5 file are encoded or saved as bytes directly
         Returns:
             torch Dataset: to pass to a dataloader
     """
-    def __init__(self, path, cache=False, transform=None, save_encoded=False):
+    def __init__(self, path, cache=False, transform=None, load_encoded=False):
         print("Initializing HDF5 dataset with path: ", path)
         self.file_path = path
         self.cache = cache
         self.transform = transform
-        self.save_encoded = save_encoded
+        self.load_encoded = load_encoded
 
         # Hardcoded key, value pair within the .h5 files
         self.h5_key_samples = "images"
@@ -184,7 +187,7 @@ class H5Dataset(torch.utils.data.Dataset):
         if self.cache:
             image = self.cached_images[index]
             label = self.cached_labels[index]
-            if self.save_encoded:
+            if self.load_encoded:
                 image = PIL.Image.open(io.BytesIO(image))
             if self.transform:
                 image = self.transform(image)
@@ -200,9 +203,8 @@ class H5Dataset(torch.utils.data.Dataset):
 
 
         image = self.dataset[index]
-        if self.save_encoded:
+        if self.load_encoded:
             image = PIL.Image.open(io.BytesIO(image))
-
 
         label = self.labels[index]
         if self.transform:
@@ -222,16 +224,16 @@ class LMDBDataset(torch.utils.data.Dataset):
         Args:
             path (str): location where the images are stored on disk
             transform (obj): torchvision.transforms object or None
-            save_encoded (bool): whether the images within the .h5 file are encoded or saved as bytes directly
+            load_encoded (bool): whether the images within the .h5 file are encoded or saved as bytes directly
         Returns:
             torch Dataset: to pass to a dataloader
     """
-    def __init__(self, path, cache=False, transform=None, save_encoded=False):
+    def __init__(self, path, cache=False, transform=None, load_encoded=False):
         print("Initializing LMDB dataset with path: ", path)
         self.path = path
         self.cache = cache
         self.transform = transform
-        self.save_encoded = save_encoded
+        self.load_encoded = load_encoded
 
         self.cached_images = []
         self.cached_labels = []
@@ -260,7 +262,7 @@ class LMDBDataset(torch.utils.data.Dataset):
             image = self.cached_images[index]
             label = self.cached_labels[index]
 
-            if self.save_encoded:
+            if self.load_encoded:
                 image = PIL.Image.open(io.BytesIO(image))
             if self.transform:
                 image = self.transform(image)
@@ -275,7 +277,7 @@ class LMDBDataset(torch.utils.data.Dataset):
         # Load from LMDB
         image, label = pickle.loads(self.txn.get(self.keys[index]))
 
-        if self.save_encoded:
+        if self.load_encoded:
             image = PIL.Image.open(io.BytesIO(image))
 
         if self.transform:
@@ -296,14 +298,16 @@ class ZIPDataset(torch.utils.data.Dataset):
         Args:
             path (str): location where the images are stored on disk
             transform (obj): torchvision.transforms object or None
+            load_encoded (bool): whether the images within the .zip file are encoded or saved as bytes directly
         Returns:
             torch Dataset: to pass to a dataloader
     """
-    def __init__(self, path, cache=False, transform=None):
-        print(f"Initializing TAR dataset for: {path}")
+    def __init__(self, path, cache=False, transform=None, load_encoded=False):
+        print(f"Initializing ZIP dataset for: {path}")
         self.path = path
         self.zipfile = None
         self.transform = transform
+        self.load_encoded = load_encoded
 
         # Each worker needs to get the keys of the ZIP file
         worker = torch.utils.data.get_worker_info()
@@ -377,14 +381,17 @@ class ZIPDataset(torch.utils.data.Dataset):
 
     def _get_image(self, fname):
         fname = self._get_file(fname)
-        if self.file_ext.lower() == ".png" and pyspng:
-            image = pyspng.load(fname.read())
-        elif self.file_ext.lower() == ".jpeg" and turbojpeg:
-            image = turbojpeg_decoder.decode(fname.read(), pixel_format=0)
-        else:
-            image = PIL.Image.open(fname.read()).convert("RGB")
+        if not self.load_encoded:
             # In case of having the image saved as bytes:
-            #image = np.frombuffer(fname.read(), dtype=np.uint8).reshape(256,256,3)
+            image = np.frombuffer(fname.read(), dtype=np.uint8).reshape(32,32,3)
+        else:
+            if self.file_ext.lower() == ".png" and pyspng:
+                image = pyspng.load(fname.read())
+            elif self.file_ext.lower() == ".jpeg" and turbojpeg:
+                image = turbojpeg_decoder.decode(fname.read(), pixel_format=0)
+            else:
+                image = PIL.Image.open(fname.read()).convert("RGB")
+            
         return image
 
     def _get_label(self, index):
@@ -423,14 +430,15 @@ class TARDataset(torch.utils.data.Dataset):
         Args:
             path (str): location where the images are stored on disk
             transform (obj): torchvision.transforms object or None
+            load_encoded (bool): whether the images within the .tar file are encoded or saved as bytes directly
         Returns:
             torch Dataset: to pass to a dataloader
     """
-    def __init__(self, path, cache=False, transform=None):
+    def __init__(self, path, cache=False, transform=None, load_encoded=False):
         print(f"Initializing TAR dataset for: {path}")
         self.path = path
         self.transform = transform
-
+        self.load_encoded = load_encoded
 
         # First uncompress because .gz cannot be read in parallel
         if self.path.endswith(".tar.gz"):
@@ -516,15 +524,17 @@ class TARDataset(torch.utils.data.Dataset):
 
     def _get_image(self, fname):
         fname = self._get_file(fname)
-        if self.file_ext.lower() == ".png" and pyspng:
-            image = pyspng.load(fname.read())
-        elif self.file_ext.lower() == ".jpeg" and turbojpeg:
-            image = turbojpeg_decoder.decode(fname.read(), pixel_format=0)
-        else:
-            image = PIL.Image.open(fname.read()).convert("RGB")
+        if not self.load_encoded:
             # In case of having the image saved as bytes:
-            #image = np.frombuffer(fname.read(), dtype=np.uint8).reshape(1024,1024,3)
-
+            image = np.frombuffer(fname.read(), dtype=np.uint8).reshape(32,32,3)
+        else:
+            if self.file_ext.lower() == ".png" and pyspng:
+                image = pyspng.load(fname.read())
+            elif self.file_ext.lower() == ".jpeg" and turbojpeg:
+                image = turbojpeg_decoder.decode(fname.read(), pixel_format=0)
+            else:
+                image = PIL.Image.open(fname.read()).convert("RGB")
+            
         return image
 
     def _get_label(self, index):

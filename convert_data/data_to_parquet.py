@@ -114,9 +114,12 @@ if __name__ == "__main__":
        Converting and saving the bytes is 8 times slower but the files are 2 times smaller for images of 256x256x3
        The byte version serializes the image with lossless PNG or the original JPEG compression
     '''
+    # Number of partitions/shard/files to subdivide the dataset into
     num_files = 1
-    save_encoded = True
-    resize = False # resize must be true for Unischema Field for ImageNet10k
+    # Flag to save as bytes or H5 arrays
+    save_encoded = False
+    # Flag to resize the samples to a common resolution
+    resize = False
     #generate_cifar10_parquet(num_files, save_encoded)
     #generate_imagenet_parquet(num_files, save_encoded, resize=resize)
     generate_ffhq_parquet(num_files, save_encoded)
