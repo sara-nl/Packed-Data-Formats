@@ -383,7 +383,7 @@ class ZIPDataset(torch.utils.data.Dataset):
         fname = self._get_file(fname)
         if not self.load_encoded:
             # In case of having the image saved as bytes:
-            image = np.frombuffer(fname.read(), dtype=np.uint8).reshape(32,32,3)
+            image = np.frombuffer(fname.read(), dtype=np.uint8).reshape(256,256,3)
         else:
             if self.file_ext.lower() == ".png" and pyspng:
                 image = pyspng.load(fname.read())
@@ -526,7 +526,7 @@ class TARDataset(torch.utils.data.Dataset):
         fname = self._get_file(fname)
         if not self.load_encoded:
             # In case of having the image saved as bytes:
-            image = np.frombuffer(fname.read(), dtype=np.uint8).reshape(32,32,3)
+            image = np.frombuffer(fname.read(), dtype=np.uint8).reshape(256,256,3)
         else:
             if self.file_ext.lower() == ".png" and pyspng:
                 image = pyspng.load(fname.read())

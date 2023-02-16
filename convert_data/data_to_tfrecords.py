@@ -186,4 +186,4 @@ if __name__ == "__main__":
     resize = False
     #cifar10_to_tfrecords(num_files, save_encoded)
     #imagenet10k_to_tfrecords(num_files, save_encoded, resize, encoder_info)
-    ffhq_to_tfrecords(num_files, save_encoded)
+    #ffhq_to_tfrecords(num_files, save_encoded)

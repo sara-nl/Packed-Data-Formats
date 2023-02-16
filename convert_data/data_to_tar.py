@@ -170,4 +170,4 @@ if __name__ == "__main__":
     resize = False
     #cifar10_to_tar(num_files, save_encoded)
     #imagenet10k_to_tar(num_files, save_encoded=save_encoded, resize=resize, encoder_info=encoder_info)
-    ffhq_to_tar(num_files, save_encoded=save_encoded, encoder_info=encoder_info)
+    #ffhq_to_tar(num_files, save_encoded=save_encoded, encoder_info=encoder_info)

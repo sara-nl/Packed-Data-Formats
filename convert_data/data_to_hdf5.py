@@ -201,4 +201,4 @@ if __name__ == "__main__":
     resize = False
     #cifar10_to_hdf5(num_files, save_encoded, encoder_info=encoder_info)
     #imagenet10k_to_hdf5(num_files, save_encoded, encoder_info=encoder_info)
-    ffhq_to_hdf5(num_files, save_encoded, encoder_info)
+    #ffhq_to_hdf5(num_files, save_encoded, encoder_info)

@@ -20,6 +20,9 @@ from args import parse_args
 from datasets import *
 from util import TransformCV2, transform as transform_fn
 
+# Ensure that all operations are deterministic on GPU (if used) for reproducibility
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
 
 
 def benchmark_petastorm(path, epochs, batch_size, num_workers, format, len_dataset, resize_dim=256, pin_memory=False, cache=False, warm_start=False, persistent_workers=False, shuffle=True, device="cuda"):
@@ -64,7 +67,8 @@ def benchmark_petastorm(path, epochs, batch_size, num_workers, format, len_datas
             pool_type = "dummy"
         else:
             pool_type = "thread" #thread
-            
+        #pool_type = "thread" #thread
+
         with psDataLoader(make_reader(path, 
                                       reader_pool_type = pool_type, 
                                       num_epochs = epochs,
@@ -285,7 +289,7 @@ def copy_data_to_folder(old_path, new_path):
     return new_path_out
 
 
-def run_benchmarks(dataset_name, data_paths, epochs, batch_size, num_workers, cache, load_encoded, transform, **dataloader_kwargs):
+def run_benchmarks(dataset_name, data_paths, epochs, batch_size, num_workers, cache, load_encoded, transform, **dataloader_kwargs):    
     results = []
     if dataset_name == "CIFAR10":
         orig_dim = 32
@@ -373,7 +377,7 @@ def main():
     data_path_lmdb = f"{prefix}/{dataset_path}/lmdb/part0.lmdb"
     data_path_zip = f"{prefix}/{dataset_path}/zip/part0.zip"
     data_path_tar = f"{prefix}/{dataset_path}/tar/part0.tar"
-    data_path_petastorm = f"{prefix}/{dataset_path}/parquet/"
+    data_path_petastorm = f"{prefix}/{dataset_path}/parquet_encoded/"
     data_path_tfrecords = f"{prefix}/{dataset_path}/tfrecords/part0.tfrecords"
     index_path = f"{prefix}/{dataset_path}/tfrecords/data.index"
 

@@ -74,7 +74,7 @@ def generate_parquet_data(dataset, output_url, rowgroup_size_mb=128, num_procs=3
 
 def generate_cifar10_parquet(num_files, save_encoded):
     rowgroup_size_mb = 128
-    output_url = "file:///home/{}/CompressionProject/data/cifar10/parquet_encoded/".format(os.getenv("USER"))
+    output_url = "file:///home/{}/CompressionProject/data/cifar10/parquet/".format(os.getenv("USER"))
 
     data_path = "../data/cifar10/disk/"
     dataset = ImageDataset(data_path)
@@ -82,7 +82,7 @@ def generate_cifar10_parquet(num_files, save_encoded):
 
 def generate_imagenet_parquet(num_files, save_encoded=False, resize=True):
     rowgroup_size_mb = 128
-    output_url = "file:///home/{}/CompressionProject/data/imagenet10k/parquet/".format(os.getenv("USER"))
+    output_url = "file:///home/{}/CompressionProject/data/imagenet10k/parquet_encoded/".format(os.getenv("USER"))
 
     # Unischema requires same dimension so must be resized!
     if resize:
@@ -97,7 +97,7 @@ def generate_imagenet_parquet(num_files, save_encoded=False, resize=True):
 
 def generate_ffhq_parquet(num_files, save_encoded=False):
     rowgroup_size_mb = 256
-    output_url = "file:///scratch-shared/{}/ffhq/parquet/".format(os.getenv("USER"))
+    output_url = "file:///scratch-shared/{}/ffhq_test/parquet_encoded/".format(os.getenv("USER"))
 
     data_path = "/scratch-shared/{}/ffhq/tar/ffhq_images.tar".format(os.getenv("USER"))
     dataset = TARDataset(data_path, label_file="/scratch-shared/{}/ffhq/tar/members".format(os.getenv("USER")))
@@ -122,5 +122,5 @@ if __name__ == "__main__":
     resize = False
     #generate_cifar10_parquet(num_files, save_encoded)
     #generate_imagenet_parquet(num_files, save_encoded, resize=resize)
-    generate_ffhq_parquet(num_files, save_encoded)
+    #generate_ffhq_parquet(num_files, save_encoded)
     

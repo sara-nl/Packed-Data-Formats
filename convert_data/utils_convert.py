@@ -19,9 +19,12 @@ except ImportError:
     turbojpeg = None
 
 if turbojpeg:
-    turbojpeg_path = "/opt/TurboVNC/java/libturbojpeg.so"
-    # Test
-    turbojpeg_decoder = turbojpeg.TurboJPEG(turbojpeg_path)
+    try:
+        turbojpeg_path = "/opt/TurboVNC/java/libturbojpeg.so"
+        # Test
+        turbojpeg_decoder = turbojpeg.TurboJPEG(turbojpeg_path)
+    except OSError:
+        print("turboJPEG was installed but not found. Continuing without")
 
 import numpy as np
 import PIL.Image

@@ -145,6 +145,6 @@ if __name__ == "__main__":
     resize = False
     #ifar10_to_lmdb(num_files, save_encoded, encoder_info=encoder_info)
     #imagenet10k_to_lmdb(num_files, save_encoded, encoder_info=encoder_info)
-    ffhq_to_lmdb(num_files, save_encoded, encoder_info)
+    #ffhq_to_lmdb(num_files, save_encoded, encoder_info)
 
         
