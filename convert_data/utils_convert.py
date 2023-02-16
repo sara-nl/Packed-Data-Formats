@@ -172,9 +172,6 @@ class TARDataset(torch.utils.data.Dataset):
         self.encoder_info = encoder_info
         self.info = None
         print(f"Initializing TAR dataset for: {self.path}")
-        # First uncompress
-        #if self.path.endswith(".tar.gz"): # Cannot be parallellized and is thus slow
-        # self.all_fnames = tarfile.TarFile(self.path).getmembers() #
 
         #assert(self.path.endswith(".tar"))
 
@@ -184,9 +181,6 @@ class TARDataset(torch.utils.data.Dataset):
         self.tar_handle = {worker: tarfile.open(path)}
 
         # store headers of all files and folders by name
-        print("Get members")
-        import time
-        start = time.time()
         if label_file:
             with open(label_file, "rb") as fp:
                 self.members_by_name = pickle.load(fp)
@@ -198,13 +192,10 @@ class TARDataset(torch.utils.data.Dataset):
                 pickle.dump(self.members_by_name, fp)
             print(f"Finished create a members file. Please add the following path to the init as label_file next time: ", Path(path).parent+"members")
 
-        print(f"Finished get.members in {time.time() - start}")
-        start = time.time()
         self._get_all_samples()
 
         label_fname = None # or "string"
 
-        start = time.time()
         if len(self.label_fname) >= 1 and label_fname is not None:
             self._parse_label_file(worker, label_fname)
         else:
@@ -304,8 +295,6 @@ class TARDataset(torch.utils.data.Dataset):
             image = self.transform(image)
         else:
             image = np.asarray(image)
-        #else:
-        #    image = transforms.functional.to_tensor(image)
 
         if self.info:
             self.info["size"] = (image.shape[1], image.shape[0])
@@ -318,7 +307,7 @@ class TARDataset(torch.utils.data.Dataset):
 
 
     def __del__(self):
-        """Close the TarFile file handles on exit."""
+        """Clean all file handles of the workers on exit"""
         if hasattr(self, "tar_handle"):
             for o in self.tar_handle.values():
                 o.close()

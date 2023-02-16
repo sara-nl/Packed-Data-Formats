@@ -431,10 +431,11 @@ class TARDataset(torch.utils.data.Dataset):
             path (str): location where the images are stored on disk
             transform (obj): torchvision.transforms object or None
             load_encoded (bool): whether the images within the .tar file are encoded or saved as bytes directly
+            label_file (str): path to save the cached getmembers() output as this may take a while for larger dataset
         Returns:
             torch Dataset: to pass to a dataloader
     """
-    def __init__(self, path, cache=False, transform=None, load_encoded=False):
+    def __init__(self, path, transform=None, load_encoded=False, label_file=None):
         print(f"Initializing TAR dataset for: {path}")
         self.path = path
         self.transform = transform
@@ -450,7 +451,19 @@ class TARDataset(torch.utils.data.Dataset):
         self.tar_handle = {worker: tarfile.open(path)}
 
         # Store headers of all files and folders by name
-        self.members = sorted(self.tar_handle[worker].getmembers(), key=lambda m: m.name)
+        #self.members = sorted(self.tar_handle[worker].getmembers(), key=lambda m: m.name)
+
+        # store headers of all files and folders by name
+        if label_file:
+            with open(label_file, "rb") as fp:
+                self.members_by_name = pickle.load(fp)
+            
+        else:
+            # get.members() takes very long for larger TAR archives so cache the members in a byte file
+            self.members_by_name = {m.name: m for m in sorted(self.tar_handle[worker].getmembers(), key=lambda m: m.name)}
+            with open(os.path.join(Path(path).parent, "members"), "wb") as fp:
+                pickle.dump(self.members_by_name, fp)
+            print(f"Finished create a members file. Please add the following path to the init as label_file next time: ", Path(path).parent+"members")
 
         self._get_all_samples()
         label_fname = None # or "String"
