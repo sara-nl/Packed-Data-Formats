@@ -1,10 +1,12 @@
-import os
 from pathlib import Path
-import struct
 import io
+import os
 
 import numpy as np
-import tensorflow as tf
+
+import pickle  # Python 3 automatically uses pickle C accelerator
+
+import lmdb
 import torch
 import PIL.Image
 
@@ -17,22 +19,20 @@ from utils_convert import (
 )
 
 
-def _int64_feature(value):
-    return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
-
-
-def _bytes_feature(value):
-    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
-
-
-def generate_tfrecords_data(
-    dataset, path, num_files=4, save_encoded=True, encoder_info=False
+def generate_lmdb_data(
+    dataset,
+    path,
+    num_files=4,
+    save_encoded=False,
+    encoder_info=False,
+    save_by_batch=1000,
 ):
     num_images = len(dataset)
-    num_files = np.linspace(0, num_images, num_files + 1, dtype=int)[1:]
 
+    num_files = np.linspace(0, num_images, num_files + 1, dtype=int)[1:]
     num_file = 0
 
+    num_images_per_part = num_files[0]
     if encoder_info:
         collate_fn_ = collate_fn_encoder_info
     else:
@@ -41,19 +41,25 @@ def generate_tfrecords_data(
         dataset, num_workers=32, batch_size=1, collate_fn=collate_fn_
     )
 
-    for i, batch in enumerate(dataloader):
-        image = batch[0][0]
-        label = batch[1][0]
+    samples_batch = []
+    key_offset = 0
 
+    for i, batch in enumerate(dataloader):
+        image, label = batch[0][0], batch[1][0]
         if i == 0:
-            fname = path + f"/part{num_file}.tfrecords"
-            tf_file = tf.io.TFRecordWriter(fname)
+            # We need to set the map size prior
+            # Create a new LMDB DB for all the images, assumes all the same resolution or you have to find the largest file
+            map_size = num_images_per_part * image.nbytes * 10
+
+            env = lmdb.open(
+                path + f"/part{num_file}.lmdb", map_size=map_size, subdir=False
+            )
 
         if save_encoded:
             image_bits = io.BytesIO()
             if encoder_info:
                 info = batch[2][0]
-                image_pil = PIL.Image.new("RGB", info["size"])  # force grayscale to RGB
+                image_pil = PIL.Image.new("RGB", info["size"])  # force mode to RGB
                 image_pil.putdata(PIL.Image.fromarray(image).getdata())
                 image_pil.format = info["format"]
                 image_pil.progressive = info["progressive"]
@@ -75,89 +81,66 @@ def generate_tfrecords_data(
                 image_pil.save(
                     image_bits, format=image_pil.format.lower(), quality=quality
                 )  # slight discrepancy because compression algorithm might not be same?
+
             else:
                 image_pil = PIL.Image.fromarray(image)
                 image_pil.save(image_bits, format="png")
-            image_bytes = image_bits.getvalue()
 
+            image_byte = image_bits.getvalue()
             image_pil.close()
 
-        else:
-            # memfile = io.BytesIO()
-            # np.save(memfile, image)
-            # image_bytes = bytearray(memfile.getvalue())
-            image_bytes = image.tobytes()
+            samples_batch.append((image_byte, label))
 
-        example = tf.train.Example(
-            features=tf.train.Features(
-                feature={
-                    "image": _bytes_feature(image_bytes),
-                    "label": _int64_feature(label),
-                }
-            )
-        )
-        tf_file.write(example.SerializeToString())
+        else:
+            samples_batch.append((image, label))
+
+        if len(samples_batch) == save_by_batch:
+            with env.begin(write=True) as txn:  # TODO: this takes much time?
+                for n, batch in enumerate(samples_batch):
+                    key = f"{(n+key_offset):08}"
+                    txn.put(key.encode("ascii"), pickle.dumps(batch))
+            key_offset += save_by_batch
+            samples_batch = []
 
         if i + 1 == num_files[num_file]:
-            tf_file.close()
+            with env.begin(write=True) as txn:  # TODO: this takes much time?
+                for n, batch in enumerate(samples_batch):
+                    key = f"{(n+key_offset):08}"
+                    txn.put(key.encode("ascii"), pickle.dumps(batch))
+            samples_batch = []
+            env.close()
 
             if i + 1 == num_images:
                 break
 
             num_file += 1
-
-            fname = path + f"/part{num_file}.tfrecords"
-            tf_file = tf.io.TFRecordWriter(fname)
+            env = lmdb.open(
+                path + f"/part{num_file}.lmdb", map_size=map_size, subdir=False
+            )
+    # with env.begin(write=True) as txn:  # TODO: this takes much time?
+    #    for batch in samples_batch:
+    #        txn.put(key.encode("ascii"), pickle.dumps(batch))
+    env.close()
     return
 
 
-def create_index_file(tfrecord_dir, index_file):
-    tf_files = list(Path(tfrecord_dir).glob("*.tfrecords"))
-    outfile = open(index_file, "w")
-
-    for tfrecord_file in tf_files:
-        infile = open(tfrecord_file, "rb")
-
-        while True:
-            current = infile.tell()
-            try:
-                byte_len = infile.read(8)
-                if len(byte_len) == 0:
-                    break
-                infile.read(4)
-                proto_len = struct.unpack("q", byte_len)[0]  # q = non-zero integer
-                infile.read(proto_len)
-                infile.read(4)
-                outfile.write(str(current) + " " + str(infile.tell() - current) + "\n")
-            except:
-                print("Failed to parse TFRecord.")
-                break
-        infile.close()
-    outfile.close()
-
-
-def cifar10_to_tfrecords(num_files, save_encoded=False, encoder_info=False):
-    output_path = "../data/cifar10/tfrecords/"
-    index_file = "../data/cifar10/tfrecords/data.index"
+def cifar10_to_lmdb(num_files, save_encoded, encoder_info=False):
+    output_path = "../data/cifar10/lmdb"
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
     data_path = "../data/cifar10/disk/"
     dataset = ImageDataset(data_path, encoder_info=encoder_info)
-    generate_tfrecords_data(
+    generate_lmdb_data(
         dataset,
         output_path,
         num_files=num_files,
         save_encoded=save_encoded,
         encoder_info=encoder_info,
     )
-    create_index_file(output_path, index_file)
 
 
-def imagenet10k_to_tfrecords(
-    num_files, save_encoded=False, resize=False, encoder_info=False
-):
-    output_path = "../data/imagenet10k/tfrecords/"
-    index_file = "../data/imagenet10k/tfrecords/data.index"
+def imagenet10k_to_lmdb(num_files, save_encoded=False, resize=True, encoder_info=False):
+    output_path = "../data/imagenet10k/lmdb2"
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
     # ImageNet has various resolutions so resize to a fixed size
@@ -175,22 +158,17 @@ def imagenet10k_to_tfrecords(
         offset_index=1,
         encoder_info=encoder_info,
     )
-    generate_tfrecords_data(
+    generate_lmdb_data(
         dataset,
         output_path,
         num_files=num_files,
         save_encoded=save_encoded,
         encoder_info=encoder_info,
     )
-    create_index_file(output_path, index_file)
 
 
-def ffhq_to_tfrecords(num_files, save_encoded=False, encoder_info=False):
-    output_path = "/scratch-shared/{}/ffhq/tfrecords_encoded/".format(os.getenv("USER"))
-    index_file = "/scratch-shared/{}/ffhq/tfrecords_encoded/data.index".format(
-        os.getenv("USER")
-    )
-
+def ffhq_to_lmdb(num_files, save_encoded=False, encoder_info=False):
+    output_path = "/scratch-shared/{}/ffhq/lmdb".format(os.getenv("USER"))
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
     data_path = "/scratch-shared/{}/ffhq/tar/ffhq_images.tar".format(os.getenv("USER"))
@@ -200,26 +178,27 @@ def ffhq_to_tfrecords(num_files, save_encoded=False, encoder_info=False):
         label_file="/scratch-shared/{}/ffhq/tar/members".format(os.getenv("USER")),
     )
 
-    generate_tfrecords_data(
+    generate_lmdb_data(
         dataset,
         output_path,
         num_files=num_files,
         save_encoded=save_encoded,
         encoder_info=encoder_info,
     )
-    create_index_file(output_path, index_file)
 
 
 if __name__ == "__main__":
     """
-    Creates .tfrecords file(s) from a given dataset.
+    Creates a SINGLE lmdb folder with .mdb files from a given dataset.
 
+    Opening and writing individual entries is slow for a LMDB transaction.
+    Hence, the lmdb_fast writes per entries in groups (save_by_batch=1000)
     1. Provide the output path to the hdf5 file and the path to the input files
     2. Choose number of files to split the data into to
     3. Create a torch dataset instance to iterate through
     4. Choose by saving the images in bytes or numpy arrays
        Converting and saving the bytes is 8 times slower but the files are 2 times smaller for images of 256x256x3
-       The byte version serializes the image with lossless PNG or the original JPEG compression
+       The byte version serializes the image with lossless PNG compression
     """
     # Number of partitions/shard/files to subdivide the dataset into
     num_files = 1
@@ -229,6 +208,6 @@ if __name__ == "__main__":
     encoder_info = False
     # Flag to resize the samples to a common resolution
     resize = False
-    # cifar10_to_tfrecords(num_files, save_encoded)
-    # imagenet10k_to_tfrecords(num_files, save_encoded, resize, encoder_info)
-    # ffhq_to_tfrecords(num_files, save_encoded)
+    # cifar10_to_lmdb(num_files, save_encoded, encoder_info=encoder_info)
+    # imagenet10k_to_lmdb(num_files, save_encoded, encoder_info=encoder_info)
+    # ffhq_to_lmdb(num_files, save_encoded, encoder_info)

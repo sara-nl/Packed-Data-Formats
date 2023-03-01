@@ -48,14 +48,24 @@ def collate_fn(batch):
     labels = np.asarray([item[1] for item in batch])
     return samples, labels
 
+
 def collate_fn_encoder_info(batch):
     samples = np.asarray([item[0] for item in batch])
     labels = np.asarray([item[1] for item in batch])
     encoder_info = np.asarray([item[2] for item in batch])
     return samples, labels, encoder_info
 
+
 class ImageDataset(torch.utils.data.Dataset):
-    def __init__(self, path, cache=False, transform=None, prefix="", offset_index=0, encoder_info=False):
+    def __init__(
+        self,
+        path,
+        cache=False,
+        transform=None,
+        prefix="",
+        offset_index=0,
+        encoder_info=False,
+    ):
         self.img_dir = Path(path)
         self.labels = []
         self.cached_images = []
@@ -69,35 +79,43 @@ class ImageDataset(torch.utils.data.Dataset):
 
         self.zfill_len = 0 if prefix == "" else 8
         index = offset_index
-        img_path_example = os.path.join(self.img_dir, self.prefix + str(index).zfill(self.zfill_len))
+        img_path_example = os.path.join(
+            self.img_dir, self.prefix + str(index).zfill(self.zfill_len)
+        )
         img_path = list(glob.glob(img_path_example + "*"))
-        assert(len(img_path) == 1)
+        assert len(img_path) == 1
         self.file_ext = os.path.splitext(img_path[0])[1]
 
         self.read_label_file()
         if cache:
             self.cache_images()
 
-            
-
     def read_label_file(self):
-        label_file = list(self.img_dir.glob("*.csv")) + list(self.img_dir.glob("*.txt")) 
-        assert(len(label_file) == 1)
+        label_file = list(self.img_dir.glob("*.csv")) + list(self.img_dir.glob("*.txt"))
+        assert len(label_file) == 1
         label_file = label_file[0]
 
         with open(label_file, "r") as csvfile:
-            reader = csv.reader(csvfile, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL)
+            reader = csv.reader(
+                csvfile, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL
+            )
             for row in reader:
                 self.labels.append(int(row[0]))
 
     def read_image(self, img_path):
         fname = open(img_path, "rb")
+        jpgs = (".jpg", ".jpeg")
         if self.file_ext == ".png" and pyspng and not self.encoder_info:
             image = pyspng.load(fname.read())
-        #elif self.file_ext.lower() == ".jpeg" and turbojpeg:
-        #    image = self.jpeg.decode(fname.read(), pixel_format=0)
+        elif self.file_ext.lower() in jpgs and turbojpeg:
+            try:
+                image = turbojpeg_decoder.decode(fname.read(), pixel_format=0)
+            except IOError:  # Catch jpgs which are actually encoded as PNG
+                image = PIL.Image.open(fname).convert("RGB")
         else:
-            image = PIL.Image.open(fname)#.convert("RGB") <- loses all image information like dpi, format etc.
+            image = PIL.Image.open(
+                fname
+            )  # .convert("RGB") <- loses all image information like dpi, format etc.
             if self.encoder_info:
                 self.info = self.fill_encoder_info(image)
             image = image.convert("RGB")
@@ -107,30 +125,33 @@ class ImageDataset(torch.utils.data.Dataset):
     def cache_images(self):
         for index in range(len(self.labels)):
             index += self.offset_index
-            img_path = os.path.join(self.img_dir, self.prefix + str(index).zfill(self.zfill_len) + self.file_ext)
+            img_path = os.path.join(
+                self.img_dir,
+                self.prefix + str(index).zfill(self.zfill_len) + self.file_ext,
+            )
             image = self.read_image(img_path)
             self.cached_images.append(image)
 
     @staticmethod
     def fill_encoder_info(image):
-        if hasattr(image, "encoderinfo"): # never happens? so always empty info
+        if hasattr(image, "encoderinfo"):  # never happens? so always empty info
             info = image.encoderinfo
         else:
             info = {}
         encoder_info = {
             "mode": "RGB",
             "format": image.format,
-            "progressive": info.get("progressive", False) or info.get("progression", False), # progressive
-            "smooth": info.get("smooth", 0), # smooth
-            "optimize": info.get("optimize", False), # optimize
-            "streamtype": info.get("streamtype", 0), # streamtype
-            "dpi": [round(x) for x in info.get("dpi", (0, 0))], # dpi
-            "layer": getattr(image, "layer", None), # layer
-            "layers": getattr(image, "layers", None), # layers
-            "quantization": getattr(image, "quantization", None) # quantization
+            "progressive": info.get("progressive", False)
+            or info.get("progression", False),  # progressive
+            "smooth": info.get("smooth", 0),  # smooth
+            "optimize": info.get("optimize", False),  # optimize
+            "streamtype": info.get("streamtype", 0),  # streamtype
+            "dpi": [round(x) for x in info.get("dpi", (0, 0))],  # dpi
+            "layer": getattr(image, "layer", None),  # layer
+            "layers": getattr(image, "layers", None),  # layers
+            "quantization": getattr(image, "quantization", None),  # quantization
         }
         return encoder_info
-
 
     def __getitem__(self, index):
         label = self.labels[index]
@@ -142,15 +163,16 @@ class ImageDataset(torch.utils.data.Dataset):
 
         index += self.offset_index
 
-        img_path = os.path.join(self.img_dir, self.prefix + str(index).zfill(self.zfill_len) + self.file_ext)
+        img_path = os.path.join(
+            self.img_dir, self.prefix + str(index).zfill(self.zfill_len) + self.file_ext
+        )
         image = self.read_image(img_path)
         if self.transform:
             image = self.transform(image)
-        #else:
+        # else:
         #    image = transforms.functional.to_tensor(image)
 
-
-        #else:
+        # else:
         #    image = image
 
         image = np.asarray(image)
@@ -164,16 +186,17 @@ class ImageDataset(torch.utils.data.Dataset):
         return len(self.labels)
 
 
-
 class TARDataset(torch.utils.data.Dataset):
-    def __init__(self, path, transform=None, file_ext=None, encoder_info=False, label_file=None):
+    def __init__(
+        self, path, transform=None, file_ext=None, encoder_info=False, label_file=None
+    ):
         self.path = path
         self.file_ext = file_ext
         self.encoder_info = encoder_info
         self.info = None
         print(f"Initializing TAR dataset for: {self.path}")
 
-        #assert(self.path.endswith(".tar"))
+        # assert(self.path.endswith(".tar"))
 
         # Tar Dataset not thread-safe so we give handle to multiple workers in the init when the workers are forked
         worker = get_worker_info()
@@ -184,17 +207,25 @@ class TARDataset(torch.utils.data.Dataset):
         if label_file:
             with open(label_file, "rb") as fp:
                 self.members_by_name = pickle.load(fp)
-            
+
         else:
             # get.members() takes very long for larger TAR archives so cache the members in a byte file
-            self.members_by_name = {m.name: m for m in sorted(self.tar_handle[worker].getmembers(), key=lambda m: m.name)}
+            self.members_by_name = {
+                m.name: m
+                for m in sorted(
+                    self.tar_handle[worker].getmembers(), key=lambda m: m.name
+                )
+            }
             with open(os.path.join(Path(path).parent, "members"), "wb") as fp:
                 pickle.dump(self.members_by_name, fp)
-            print(f"Finished create a members file. Please add the following path to the init as label_file next time: ", Path(path).parent+"members")
+            print(
+                f"Finished create a members file. Please add the following path to the init as label_file next time: ",
+                Path(path).parent + "members",
+            )
 
         self._get_all_samples()
 
-        label_fname = None # or "string"
+        label_fname = None  # or "string"
 
         if len(self.label_fname) >= 1 and label_fname is not None:
             self._parse_label_file(worker, label_fname)
@@ -202,8 +233,6 @@ class TARDataset(torch.utils.data.Dataset):
             self._get_all_labels()
 
         self.transform = transform
-
-
 
     def _get_all_samples(self):
         self.samples = []
@@ -215,27 +244,28 @@ class TARDataset(torch.utils.data.Dataset):
             if m_name.lower().endswith(tuple(PIL.Image.EXTENSION.keys())):
                 self.samples.append(m_name)
             elif m_name.lower().endswith(label_exts):
-                self.label_fname.append(m_name) 
+                self.label_fname.append(m_name)
         self.file_ext = os.path.splitext(self.samples[0])[1]
 
         self.length = len(self.samples)
 
-    
     def _parse_label_file(self, worker, label_fname=""):
         if label_fname == "":
             if len(self.label_fname) != 1:
-                print(f"WARNING: found {len(self.label_fname)} label files - using only the first")
+                print(
+                    f"WARNING: found {len(self.label_fname)} label files - using only the first"
+                )
 
             label_fname = self.label_fname[0]
         label_file = self.tar_handle[worker].extractfile(label_fname)
         labels = json.load(label_file)["labels"]
         labels = dict(sorted(labels, key=lambda item: item[1]))
 
-        labels = [labels[fname.replace('\\', '/')] for fname in self.samples]
+        labels = [labels[fname.replace("\\", "/")] for fname in self.samples]
         self.labels = np.array(labels, dtype=np.uint8)
 
     def _get_all_labels(self):
-        #PLACEHOLDER
+        # PLACEHOLDER
         self.labels = [0] * self.length
 
     def _get_file(self, name):
@@ -249,21 +279,26 @@ class TARDataset(torch.utils.data.Dataset):
 
     def _get_image(self, fname):
         f_handle = self._get_file(fname)
-        if self.file_ext.lower() == ".png" and pyspng and not self.encoder_info: 
+        jpgs = (".jpg", ".jpeg")
+        if self.file_ext.lower() == ".png" and pyspng and not self.encoder_info:
             image = pyspng.load(f_handle.read())
-        elif self.file_ext.lower() == ".jpeg" and turbojpeg:
-            image = self.jpeg.decode(fname.read(), pixel_format=0)
+        elif self.file_ext.lower() in jpgs and turbojpeg:
+            try:
+                image = turbojpeg_decoder.decode(fname.read(), pixel_format=0)
+            except IOError:  # Catch jpgs which are actually encoded as PNG
+                image = PIL.Image.open(fname).convert("RGB")
         else:
-            image = PIL.Image.open(io.BytesIO(f_handle.read()))#.convert("RGB") <- loses all original image information like dpi, format etc.
+            image = PIL.Image.open(
+                f_handle
+            )  # .convert("RGB") <- loses all original image information like dpi, format etc.
             if self.encoder_info:
                 self.info = self.fill_encoder_info(image)
             image = image.convert("RGB")
 
- 
         return image
 
     def _get_label(self, index):
-        return self.labels[index] # Placeholder
+        return self.labels[index]  # Placeholder
 
     @staticmethod
     def fill_encoder_info(image):
@@ -274,14 +309,15 @@ class TARDataset(torch.utils.data.Dataset):
         encoder_info = {
             "mode": image.mode,
             "format": image.format,
-            "progressive": info.get("progressive", False) or info.get("progression", False), # progressive
-            "smooth": info.get("smooth", 0), # smooth
-            "optimize": info.get("optimize", False), # optimize
-            "streamtype": info.get("streamtype", 0), # streamtype
-            "dpi": [round(x) for x in info.get("dpi", (0, 0))], # dpi
-            "layer": getattr(image, "layer", None), # layer
-            "layers": getattr(image, "layers", None), # layers
-            "quantization": getattr(image, "quantization", None) # quantization
+            "progressive": info.get("progressive", False)
+            or info.get("progression", False),  # progressive
+            "smooth": info.get("smooth", 0),  # smooth
+            "optimize": info.get("optimize", False),  # optimize
+            "streamtype": info.get("streamtype", 0),  # streamtype
+            "dpi": [round(x) for x in info.get("dpi", (0, 0))],  # dpi
+            "layer": getattr(image, "layer", None),  # layer
+            "layers": getattr(image, "layers", None),  # layers
+            "quantization": getattr(image, "quantization", None),  # quantization
         }
         return encoder_info
 
@@ -289,7 +325,6 @@ class TARDataset(torch.utils.data.Dataset):
         fname_image = self.samples[index]
         image = self._get_image(fname_image)
         label = self._get_label(index)
-
 
         if self.transform:
             image = self.transform(image)
@@ -300,18 +335,15 @@ class TARDataset(torch.utils.data.Dataset):
             self.info["size"] = (image.shape[1], image.shape[0])
             return image, label, self.info
         return image, label
-        
 
     def __len__(self):
         return self.length
-
 
     def __del__(self):
         """Clean all file handles of the workers on exit"""
         if hasattr(self, "tar_handle"):
             for o in self.tar_handle.values():
                 o.close()
-
 
     def __getstate__(self):
         """Serialize without the TarFile references, for multiprocessing compatibility."""
