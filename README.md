@@ -67,4 +67,5 @@ python data_to_hdf5.py
 - Benchmark on groups/buckets of files
 - Support (partial) caching of the data
 - Extend to tabular data
+- Include memmap 
 - Improve codebase
